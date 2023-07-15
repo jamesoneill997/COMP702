@@ -92,9 +92,3 @@ class Horse():
             return di_value, cd_value
         else:
             return None, None
-        
-def main():
-    horse = Horse('Alabama Calling')
-    print(horse.dosage)
-if __name__ == '__main__':
-    main()
