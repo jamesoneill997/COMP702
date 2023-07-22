@@ -1,0 +1,1 @@
+-e git+ssh://git@github.com/jamesoneill997/COMP702.git@5928e335a0552f01f30be0872509089bc4bf34b5#egg=OddsGenie&subdirectory=dataset_generator
