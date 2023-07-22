@@ -6,7 +6,7 @@ from bs4 import BeautifulSoup
 from lxml import etree
 
 
-class Horse():
+class HorsePedigree():
     def __init__(self, name):
         self.name = name
         self.dosage_url = self.get_dosage_url()
