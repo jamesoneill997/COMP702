@@ -120,9 +120,3 @@ class HorsePedigree():
                 print(f"Found {self.name} with sire {v['sire'].lower().replace(' ', '')} at index {k}")
                 return '' if k == 0 else str(k+1) #index 0 on pedigree website doesn't have a index suffix
         return -1 #error
-        
-def main():
-    horse = HorsePedigree('Frankel', 'Galileo')
-    print(horse.dosage)
-if __name__ == "__main__":
-    main()
