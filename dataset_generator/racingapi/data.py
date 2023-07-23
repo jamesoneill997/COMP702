@@ -63,9 +63,9 @@ class Results():
             competitors = self.get_competitors(result["runners"])
             draw = self.get_draw(result["runners"])
             surface = self.get_surface(result)
-            horse_data = self.get_horse_data(result["runners"], result["course"])
+            horse_data = self.get_horse_data(result["runners"])
             
-            pprint.pprint(result)
+            pprint.pprint(horse_data)
             
     def get_competitors(self, runners):
         return [runner["horse_id"] for runner in runners]
@@ -128,14 +128,18 @@ class Results():
         url = 'https://nominatim.openstreetmap.org/search/' + urllib.parse.quote(racecourse_name) +'?format=json'
 
         response = requests.get(url).json()
-        lat = response[0]["lat"]
-        lon = response[0]["lon"]
-        
+        try:
+            lat = response[0]["lat"]
+            lon = response[0]["lon"]
+        except IndexError as e:
+            print(e)
+            return [0,0]
         return [float(lat), float(lon)]
     
-    def get_horse_data(self, runners, course):
+    def get_horse_data(self, runners):
         #horse data 
         for runner in runners:
+            name, nationality, sire = self.parse_horse_name_details(runner)
             sex = runner["sex"]
             age = runner["age"]
             headgear = runner["headgear"]
@@ -220,7 +224,7 @@ class Results():
             )
         results = response.json()
         i = 1
-        for result in results:
+        for result in results["results"]:
             if result["off"] == time:
                 return i
             i+=1
@@ -229,11 +233,34 @@ class Results():
     
     def get_dosage(self, horse):
         pedigree = HorsePedigree(horse)
+        url = "https://api.theracingapi.com/v1/horses/search?"
+        params = {
+            'name': horse,
+        }
+        response = requests.request(
+            "GET", url, 
+            auth=HTTPBasicAuth(
+                os.getenv('RACING_API_USERNAME'),
+                os.getenv(('RACING_API_PASSWORD'))), 
+            params=params
+        )
+        print(response.json())
         return
+    
+    
+    def parse_horse_name_details(self, runner):
+        match = re.match(r'^(.*?) \((.*?)\)$', runner["horse"])
+        horse_name, nationality, sire = None
+        if match:
+            horse_name, nationality = match.groups()
+        sire = runner["sire"]
+        
+        return(horse_name.strip(), nationality.strip(), sire.strip())
+        
 def main():
     results = Results()
     
-    results.get_weather("Cheltenham", "2018-04-14", "14:09:00")
+    results.get_results()
     # results.get_results()
 if __name__ == "__main__":
     main()
