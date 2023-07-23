@@ -89,7 +89,7 @@ class HorsePedigree():
 
     def extract_match(self, html_string):
         print("Attempting to extract match...")
-        print(html_string)
+        # print(html_string)
         pattern = re.compile(r"DI = (-?\d+\.\d+)\s+CD = (-?\d+\.\d+)")
         match = pattern.search(html_string)
         if match:

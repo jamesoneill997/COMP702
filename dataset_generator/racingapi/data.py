@@ -137,21 +137,26 @@ class Results():
         return [float(lat), float(lon)]
     
     def get_horse_data(self, runners):
+        data = {}
         #horse data 
         for runner in runners:
-            name, nationality, sire = self.parse_horse_name_details(runner)
-            sex = runner["sex"]
-            age = runner["age"]
-            headgear = runner["headgear"]
-            dosage = ... #integrate pedigree data, need to handle duplicate names and shit first
-            weight = runner["weight_lbs"]
-            form = self.get_form(runner["horse_id"])
-            weight_change = self.calculate_weight_change(weight, form[0]["weight"])
-            jockey = runner["jockey_id"]
-            trainer = runner["trainer_id"]
-            owner = runner["owner_id"]
-            odds = runner["sp_dec"]
-            rating = runner["or"] #official rating
+            data[runners.index(runner)] = {}
+            data[runners.index(runner)]['name'], data[runners.index(runner)]['nationality'], data[runners.index(runner)]['sire'] = self.parse_horse_name_details(runner)
+
+            data[runners.index(runner)]['sex'] = runner["sex"]
+            data[runners.index(runner)]['age'] = runner["age"]
+            data[runners.index(runner)]['headgear'] = runner["headgear"]
+            data[runners.index(runner)]['dosage'] = self.get_dosage(runner["horse"], data[runners.index(runner)]['sire'])
+            data[runners.index(runner)]['weight'] = runner["weight_lbs"]
+            data[runners.index(runner)]['form'] = self.get_form(runner["horse_id"])
+            data[runners.index(runner)]['weight_change'] = self.calculate_weight_change(data[runners.index(runner)]['weight'], data[runners.index(runner)]['form'][0]["weight"])
+            data[runners.index(runner)]['jockey'] = runner["jockey_id"]
+            data[runners.index(runner)]['trainer'] = runner["trainer_id"]
+            data[runners.index(runner)]['owner'] = runner["owner_id"]
+            data[runners.index(runner)]['odds'] = runner["sp_dec"]
+            data[runners.index(runner)]['rating'] = runner["or"] #official rating
+            
+        return data
     
     #Will be an object, not an array of numbers as commonly seen in the industry
     #This allows for some context around how they performed, relative to the race
@@ -231,30 +236,19 @@ class Results():
             
         return 0
     
-    def get_dosage(self, horse):
-        pedigree = HorsePedigree(horse)
-        url = "https://api.theracingapi.com/v1/horses/search?"
-        params = {
-            'name': horse,
-        }
-        response = requests.request(
-            "GET", url, 
-            auth=HTTPBasicAuth(
-                os.getenv('RACING_API_USERNAME'),
-                os.getenv(('RACING_API_PASSWORD'))), 
-            params=params
-        )
-        print(response.json())
-        return
+    def get_dosage(self, horse_name, sire_name):
+        pedigree = HorsePedigree(horse_name, sire_name)
+        dosage = pedigree.dosage
+        return dosage
     
     
     def parse_horse_name_details(self, runner):
         match = re.match(r'^(.*?) \((.*?)\)$', runner["horse"])
-        horse_name, nationality, sire = None
+        horse_name, nationality, sire = (None, None, None)
         if match:
             horse_name, nationality = match.groups()
         sire = runner["sire"]
-        
+
         return(horse_name.strip(), nationality.strip(), sire.strip())
         
 def main():
