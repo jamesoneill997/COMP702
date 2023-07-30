@@ -10,7 +10,7 @@ import urllib.parse
 
 from requests.auth import HTTPBasicAuth
 from dotenv import load_dotenv
-from datetime import datetime
+from datetime import datetime, timedelta
 from meteostat import Hourly, Stations
 
 import pprint
@@ -30,10 +30,19 @@ class Results():
     def __init__(self):
         self.id = None
         self.endpoint = os.getenv("RACING_API_URL") + "/results"
-    def get_results(self):
-        params = {
-            "limit": 2,
+    def get_results(self, limit=50, skip=0, num_days=365):
+        data = {
+            'race': {},
+            'horse': {},
         }
+        params = {
+            "limit": limit,
+            "skip": skip,
+        }
+        if not num_days == 365:
+            d = datetime.today() - timedelta(days=num_days)
+            params["start_date"] = d.strftime('%Y-%m-%d')
+            params["end_data"] = datetime.today().strftime('%Y-%m-%d')
         response = requests.request(
             "GET", 
             self.endpoint, 
@@ -46,26 +55,26 @@ class Results():
         results_list = response.json()["results"]
         for result in results_list:
             #race data
-            date = result["date"]
-            going = result["going"]
-            racecourse_id = result["course_id"]
-            country = result["region"]
-            is_flat= result["type"] == "Flat"
-            distance = result["dist_y"]
-            local_time = result["off"]
-            race_rating = result["pattern"]
-            winner = result["runners"][0]
+            data['race']['date'] = result["date"]
+            data['race']['going'] = result["going"]
+            data['race']['racecourse_id'] = result["course_id"]
+            data['race']['country'] = result["region"]
+            data['race']['is_flat']= result["type"] == "Flat"
+            data['race']['distance'] = result["dist_y"]
+            data['race']['local_time'] = result["off"]
+            data['race']['race_rating'] = result["pattern"]
+            data['race']['winner'] = result["runners"][0]
             
             #race data that needs to be formatted or calculated
-            prize_money = self.format_prize_money(result["runners"][0]["prize"])
-            race_index = self.get_race_index(date, racecourse_id, local_time)
-            local_weather = self.get_weather(result["course"], date, local_time)
-            competitors = self.get_competitors(result["runners"])
-            draw = self.get_draw(result["runners"])
-            surface = self.get_surface(result)
-            horse_data = self.get_horse_data(result["runners"])
+            data['race']['prize_money'] = self.format_prize_money(result["runners"][0]["prize"])
+            data['race']['race_index'] = self.get_race_index(data['race']['date'], data['race']['racecourse_id'], data['race']['local_time'])
+            data['race']['local_weather'] = self.get_weather(result["course"], data['race']['date'], data['race']['local_time'])
+            data['race']['competitors'] = self.get_competitors(result["runners"])
+            data['race']['draw'] = self.get_draw(result["runners"])
+            data['race']['surface'] = self.get_surface(result)
+            data['horse'] = self.get_horse_data(result["runners"])
             
-            pprint.pprint(horse_data)
+        return data
             
     def get_competitors(self, runners):
         return [runner["horse_id"] for runner in runners]
@@ -83,8 +92,8 @@ class Results():
         if decimal_separator not in [".", ","]:
             decimal_separator = None
 
-        trimer = re.compile(rf'[^\d{decimal_separator}]+')
-        trimmed = trimer.sub('', prize_money)
+        trimmer = re.compile(rf'[^\d{decimal_separator}]+')
+        trimmed = trimmer.sub('', prize_money)
 
         if decimal_separator == ",":
             trimmed = trimmed.replace(",", ".")
@@ -254,7 +263,9 @@ class Results():
 def main():
     results = Results()
     
-    results.get_results()
+    for i in range(5):
+        results.get_results(limit=1, skip=i)
+
     # results.get_results()
 if __name__ == "__main__":
     main()
