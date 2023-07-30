@@ -1,5 +1,6 @@
 #custom imports
 from pedigree.data import HorsePedigree
+from firebase.config import DB
 
 #3rd party imports
 import requests
@@ -31,6 +32,7 @@ class Results():
         self.id = None
         self.endpoint = os.getenv("RACING_API_URL") + "/results"
     def get_results(self, limit=50, skip=0, num_days=365):
+        db = db
         data = {
             'race': {},
             'horse': {},
@@ -55,6 +57,7 @@ class Results():
         results_list = response.json()["results"]
         for result in results_list:
             #race data
+            data['race']['id'] = result["race_id"]
             data['race']['date'] = result["date"]
             data['race']['going'] = result["going"]
             data['race']['racecourse_id'] = result["course_id"]
@@ -73,7 +76,8 @@ class Results():
             data['race']['draw'] = self.get_draw(result["runners"])
             data['race']['surface'] = self.get_surface(result)
             data['horse'] = self.get_horse_data(result["runners"])
-            
+        
+        db.populate_dataset_entry(data)
         return data
             
     def get_competitors(self, runners):
@@ -147,15 +151,15 @@ class Results():
     
     def get_horse_data(self, runners):
         data = {}
-        #horse data 
+        #horse data
         for runner in runners:
+            stored_data = db.check_horse(runner["horse_id"]) #id, name, sex, sire, dosage
             data[runners.index(runner)] = {}
             data[runners.index(runner)]['name'], data[runners.index(runner)]['nationality'], data[runners.index(runner)]['sire'] = self.parse_horse_name_details(runner)
-
             data[runners.index(runner)]['sex'] = runner["sex"]
             data[runners.index(runner)]['age'] = runner["age"]
             data[runners.index(runner)]['headgear'] = runner["headgear"]
-            data[runners.index(runner)]['dosage'] = self.get_dosage(runner["horse"], data[runners.index(runner)]['sire'])
+            data[runners.index(runner)]['dosage'] = stored_data["dosage"] if stored_data else self.get_dosage(runner["horse"], data[runners.index(runner)]['sire'])
             data[runners.index(runner)]['weight'] = runner["weight_lbs"]
             data[runners.index(runner)]['form'] = self.get_form(runner["horse_id"])
             data[runners.index(runner)]['weight_change'] = self.calculate_weight_change(data[runners.index(runner)]['weight'], data[runners.index(runner)]['form'][0]["weight"])
@@ -164,6 +168,15 @@ class Results():
             data[runners.index(runner)]['owner'] = runner["owner_id"]
             data[runners.index(runner)]['odds'] = runner["sp_dec"]
             data[runners.index(runner)]['rating'] = runner["or"] #official rating
+            if not stored_data:
+                horse_data = {
+                    "horse_id": runner["horse_id"],
+                    "name": data[runners.index(runner)]['name'],
+                    "sex": runner["sex"],
+                    "sire": data[runners.index(runner)]['sire'],
+                    "dosage": data[runners.index(runner)]['dosage'],
+                }
+                db.populate_horse(horse_data)
             
         return data
     
@@ -262,9 +275,9 @@ class Results():
         
 def main():
     results = Results()
-    
-    for i in range(5):
-        results.get_results(limit=1, skip=i)
+    limit = 4 #number of races per request
+    for i in range(2): #runmer of requests
+        results.get_results(limit=limit, skip=limit*i)
 
     # results.get_results()
 if __name__ == "__main__":

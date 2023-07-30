@@ -63,6 +63,15 @@ class DB():
         else:
             print(f'Horse not found: {horse_id}')
             return False
+    def populate_dataset_entry(self, data):
+        try:
+            doc_ref = db.collection("dataset").document(data["race"]["id"])
+            doc_ref.set(data)
+        except Exception as e:
+            print(f'Error adding dataset entry: {data}')            
+            print(f'Error: {e}')
+            return 1
+        return 0
 
 def main():
     test_horse = {
