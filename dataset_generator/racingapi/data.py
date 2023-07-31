@@ -17,6 +17,7 @@ from meteostat import Hourly, Stations
 import pprint
 
 load_dotenv()
+db = DB()
 
 class Race():
     def __init__(self):
@@ -32,11 +33,6 @@ class Results():
         self.id = None
         self.endpoint = os.getenv("RACING_API_URL") + "/results"
     def get_results(self, limit=50, skip=0, num_days=365):
-        db = db
-        data = {
-            'race': {},
-            'horse': {},
-        }
         params = {
             "limit": limit,
             "skip": skip,
@@ -55,7 +51,16 @@ class Results():
         )
 
         results_list = response.json()["results"]
+        print(f'Processing {len(results_list)} entries...')
         for result in results_list:
+            if db.check_dataset_entry(result["race_id"]): #skip races we've already processed
+                print(f"Skipping race {result['race_id']} - entry already exists")
+                continue
+            print(f"Parsing result {results_list.index(result) + 1} of {len(results_list)} results")
+            data = {
+                'race': {},
+                'horse': {},
+            }
             #race data
             data['race']['id'] = result["race_id"]
             data['race']['date'] = result["date"]
@@ -77,8 +82,8 @@ class Results():
             data['race']['surface'] = self.get_surface(result)
             data['horse'] = self.get_horse_data(result["runners"])
         
-        db.populate_dataset_entry(data)
-        return data
+            db.populate_dataset_entry(data)
+        return
             
     def get_competitors(self, runners):
         return [runner["horse_id"] for runner in runners]
@@ -122,19 +127,24 @@ class Results():
     
     def get_weather(self, racecourse_name, date, time):
         time_period = self.format_date_time(date, time)     
-   
-        # Set time period
-        start = datetime(time_period["year"], time_period["month"], time_period["day"], time_period["hour"])
-        end = datetime(time_period["year"], time_period["month"], time_period["day"], time_period["hour"], time_period["minute"])
-        course_coords = self.get_location(racecourse_name)     
-            
-        stations = Stations()
-        stations = stations.nearby(course_coords[0], course_coords[1])
-        station = stations.fetch(1).index[0]
+        try:
+            # Set time period
+            start = datetime(time_period["year"], time_period["month"], time_period["day"], time_period["hour"])
+            end = datetime(time_period["year"], time_period["month"], time_period["day"], time_period["hour"], time_period["minute"])
+            course_coords = self.get_location(racecourse_name)     
+                
+            stations = Stations()
+            stations = stations.nearby(course_coords[0], course_coords[1])
+            station = stations.fetch(1).index[0]
 
-        data = Hourly(station, start, end)
-        data = data.fetch()
-        data_dict = data.iloc[0].to_dict()
+            data = Hourly(station, start, end)
+            data = data.fetch()
+        
+            data_dict = data.iloc[0].to_dict()
+        
+        except Exception as e:
+            print(e)
+            data_dict = "-"
         return data_dict
         
     def get_location(self, racecourse_name):
@@ -153,28 +163,30 @@ class Results():
         data = {}
         #horse data
         for runner in runners:
+            print(f"Parsing horse {runners.index(runner) + 1} of {len(runners)} runners")
             stored_data = db.check_horse(runner["horse_id"]) #id, name, sex, sire, dosage
-            data[runners.index(runner)] = {}
-            data[runners.index(runner)]['name'], data[runners.index(runner)]['nationality'], data[runners.index(runner)]['sire'] = self.parse_horse_name_details(runner)
-            data[runners.index(runner)]['sex'] = runner["sex"]
-            data[runners.index(runner)]['age'] = runner["age"]
-            data[runners.index(runner)]['headgear'] = runner["headgear"]
-            data[runners.index(runner)]['dosage'] = stored_data["dosage"] if stored_data else self.get_dosage(runner["horse"], data[runners.index(runner)]['sire'])
-            data[runners.index(runner)]['weight'] = runner["weight_lbs"]
-            data[runners.index(runner)]['form'] = self.get_form(runner["horse_id"])
-            data[runners.index(runner)]['weight_change'] = self.calculate_weight_change(data[runners.index(runner)]['weight'], data[runners.index(runner)]['form'][0]["weight"])
-            data[runners.index(runner)]['jockey'] = runner["jockey_id"]
-            data[runners.index(runner)]['trainer'] = runner["trainer_id"]
-            data[runners.index(runner)]['owner'] = runner["owner_id"]
-            data[runners.index(runner)]['odds'] = runner["sp_dec"]
-            data[runners.index(runner)]['rating'] = runner["or"] #official rating
+            index = str(runners.index(runner))
+            data[index] = {}
+            data[index]['name'], data[index]['nationality'], data[index]['sire'] = self.parse_horse_name_details(runner)
+            data[index]['sex'] = runner["sex"]
+            data[index]['age'] = runner["age"]
+            data[index]['headgear'] = runner["headgear"]
+            data[index]['dosage'] = stored_data["dosage"] if stored_data else self.get_dosage(runner["horse"], data[index]['sire'])
+            data[index]['weight'] = runner["weight_lbs"]
+            data[index]['form'] = self.get_form(runner["horse_id"])
+            data[index]['weight_change'] = self.calculate_weight_change(data[index]['weight'], data[index]['form'][0]["weight"])
+            data[index]['jockey'] = runner["jockey_id"]
+            data[index]['trainer'] = runner["trainer_id"]
+            data[index]['owner'] = runner["owner_id"]
+            data[index]['odds'] = runner["sp_dec"]
+            data[index]['rating'] = runner["or"] #official rating
             if not stored_data:
                 horse_data = {
                     "horse_id": runner["horse_id"],
-                    "name": data[runners.index(runner)]['name'],
+                    "name": data[index]['name'],
                     "sex": runner["sex"],
-                    "sire": data[runners.index(runner)]['sire'],
-                    "dosage": data[runners.index(runner)]['dosage'],
+                    "sire": data[index]['sire'],
+                    "dosage": data[index]['dosage'],
                 }
                 db.populate_horse(horse_data)
             
@@ -275,10 +287,12 @@ class Results():
         
 def main():
     results = Results()
-    limit = 4 #number of races per request
-    for i in range(2): #runmer of requests
-        results.get_results(limit=limit, skip=limit*i)
-
+    limit = 10 #number of races per request
+    i = 1
+    while True: 
+        results.get_results(limit=limit, skip=limit*i) #this will error out when it reaches the end of the results, works fine, but maybe can be handled better
+        i+=1
+        
     # results.get_results()
 if __name__ == "__main__":
     main()

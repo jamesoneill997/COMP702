@@ -63,12 +63,25 @@ class DB():
         else:
             print(f'Horse not found: {horse_id}')
             return False
+        
+    def check_dataset_entry(self, race_id):
+        doc_ref = db.collection("dataset").document(race_id)
+
+        doc = doc_ref.get()
+        if doc.exists:
+            print(f"Dataset entry found: {race_id}")
+            return doc.to_dict()
+        else:
+            print(f'Dataset entry not found: {race_id}')
+            return False
     def populate_dataset_entry(self, data):
+        print("Attempting to add dataset entry...")
         try:
             doc_ref = db.collection("dataset").document(data["race"]["id"])
             doc_ref.set(data)
+            print(f"Created dataset entry for race {data['race']['id']}")
         except Exception as e:
-            print(f'Error adding dataset entry: {data}')            
+            print(f'Error adding dataset entry: {data}')
             print(f'Error: {e}')
             return 1
         return 0
