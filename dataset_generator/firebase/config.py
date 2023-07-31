@@ -13,37 +13,94 @@ app = firebase_admin.initialize_app(cred)
 db = firestore.client()
 
 load_dotenv()
-def populate_courses():
-    courses_endpoint = os.environ["RACING_API_URL"] + "/courses"
-    params = {}
-    response = requests.request(
-        "GET", 
-        courses_endpoint, 
-        auth=HTTPBasicAuth(
-            os.environ["RACING_API_USERNAME"],
-            os.environ["RACING_API_PASSWORD"]), 
-        params=params,
-    )
-    courses = response.json()["courses"]
-    print(f'Refreshing {len(courses)} courses...')
 
-    for course in courses:
-        print("Adding course: " + course["course"])
+class DB():
+    def populate_courses(self):
+        courses_endpoint = os.environ["RACING_API_URL"] + "/courses"
+        params = {}
+        response = requests.request(
+            "GET", 
+            courses_endpoint, 
+            auth=HTTPBasicAuth(
+                os.environ["RACING_API_USERNAME"],
+                os.environ["RACING_API_PASSWORD"]), 
+            params=params,
+        )
+        courses = response.json()["courses"]
+        print(f'Refreshing {len(courses)} courses...')
+
+        for course in courses:
+            print("Adding course: " + course["course"])
+            try:
+                doc_ref = db.collection("courses").document(course["id"])
+                doc_ref.set(
+                    {
+                        "course": course["course"],
+                        "region_code": course["region_code"],
+                        "region": course["region"],
+                    }
+                )
+            except Exception as e:
+                print(f'Error adding course: {course}')            
+                print(f'Error: {e}')            
+
+    def populate_horse(self, horse_data):
         try:
-            doc_ref = db.collection("courses").document(course["id"])
-            doc_ref.set(
-                {
-                    "course": course["course"],
-                    "region_code": course["region_code"],
-                    "region": course["region"],
-                }
-            )
+            doc_ref = db.collection("horses").document(horse_data["horse_id"])
+            doc_ref.set(horse_data)
         except Exception as e:
-            print(f'Error adding course: {course}')            
-            print(f'Error: {e}')            
-    
+            print(f'Error adding horse: {horse_data}')            
+            print(f'Error: {e}')
+            return 1
+        return 0
+    def check_horse(self, horse_id):
+        doc_ref = db.collection("horses").document(horse_id)
+
+        doc = doc_ref.get()
+        if doc.exists:
+            print(f"Document data: {doc.to_dict()}")
+            return doc.to_dict()
+        else:
+            print(f'Horse not found: {horse_id}')
+            return False
+        
+    def check_dataset_entry(self, race_id):
+        doc_ref = db.collection("dataset").document(race_id)
+
+        doc = doc_ref.get()
+        if doc.exists:
+            print(f"Dataset entry found: {race_id}")
+            return doc.to_dict()
+        else:
+            print(f'Dataset entry not found: {race_id}')
+            return False
+    def populate_dataset_entry(self, data):
+        print("Attempting to add dataset entry...")
+        try:
+            doc_ref = db.collection("dataset").document(data["race"]["id"])
+            doc_ref.set(data)
+            print(f"Created dataset entry for race {data['race']['id']}")
+        except Exception as e:
+            print(f'Error adding dataset entry: {data}')
+            print(f'Error: {e}')
+            return 1
+        return 0
+
 def main():
-    #run this script to update database entries
-    populate_courses()
+    test_horse = {
+        "horse_id": "test_floats",
+        "horse_name": "red rum",
+        "sex": "F",
+        "sire": "moyganny lass",
+        "dosage": {
+            "di": 1.5,
+            "cd": 1.3,
+            },
+    }
+    db = DB()
+    db.check_horse("james")
+    db.check_horse("test_me")
+    db.populate_horse(test_horse)
+    db.check_horse("test_this_out")
 if __name__ == "__main__":
     main()

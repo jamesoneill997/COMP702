@@ -88,7 +88,7 @@ class HorsePedigree():
         return di_cd
 
     def extract_match(self, html_string):
-        print("Attempting to extract match...")
+        print("Fetching dosage index for previously unseen horse...")
         # print(html_string)
         pattern = re.compile(r"DI = (-?\d+\.\d+)\s+CD = (-?\d+\.\d+)")
         match = pattern.search(html_string)
@@ -97,6 +97,7 @@ class HorsePedigree():
             cd_value = float(match.group(2))
             return di_value, cd_value
         else:
+            print("No dosage index found")
             return None, None
         
     def parse_horse_name_details(self, horse_string):

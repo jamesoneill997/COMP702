@@ -1,5 +1,6 @@
 #custom imports
 from pedigree.data import HorsePedigree
+from firebase.config import DB
 
 #3rd party imports
 import requests
@@ -10,12 +11,13 @@ import urllib.parse
 
 from requests.auth import HTTPBasicAuth
 from dotenv import load_dotenv
-from datetime import datetime
+from datetime import datetime, timedelta
 from meteostat import Hourly, Stations
 
 import pprint
 
 load_dotenv()
+db = DB()
 
 class Race():
     def __init__(self):
@@ -30,10 +32,15 @@ class Results():
     def __init__(self):
         self.id = None
         self.endpoint = os.getenv("RACING_API_URL") + "/results"
-    def get_results(self):
+    def get_results(self, limit=50, skip=0, num_days=365):
         params = {
-            "limit": 2,
+            "limit": limit,
+            "skip": skip,
         }
+        if not num_days == 365:
+            d = datetime.today() - timedelta(days=num_days)
+            params["start_date"] = d.strftime('%Y-%m-%d')
+            params["end_data"] = datetime.today().strftime('%Y-%m-%d')
         response = requests.request(
             "GET", 
             self.endpoint, 
@@ -44,28 +51,39 @@ class Results():
         )
 
         results_list = response.json()["results"]
+        print(f'Processing {len(results_list)} entries...')
         for result in results_list:
+            if db.check_dataset_entry(result["race_id"]): #skip races we've already processed
+                print(f"Skipping race {result['race_id']} - entry already exists")
+                continue
+            print(f"Parsing result {results_list.index(result) + 1} of {len(results_list)} results")
+            data = {
+                'race': {},
+                'horse': {},
+            }
             #race data
-            date = result["date"]
-            going = result["going"]
-            racecourse_id = result["course_id"]
-            country = result["region"]
-            is_flat= result["type"] == "Flat"
-            distance = result["dist_y"]
-            local_time = result["off"]
-            race_rating = result["pattern"]
-            winner = result["runners"][0]
+            data['race']['id'] = result["race_id"]
+            data['race']['date'] = result["date"]
+            data['race']['going'] = result["going"]
+            data['race']['racecourse_id'] = result["course_id"]
+            data['race']['country'] = result["region"]
+            data['race']['is_flat']= result["type"] == "Flat"
+            data['race']['distance'] = result["dist_y"]
+            data['race']['local_time'] = result["off"]
+            data['race']['race_rating'] = result["pattern"]
+            data['race']['winner'] = result["runners"][0]
             
             #race data that needs to be formatted or calculated
-            prize_money = self.format_prize_money(result["runners"][0]["prize"])
-            race_index = self.get_race_index(date, racecourse_id, local_time)
-            local_weather = self.get_weather(result["course"], date, local_time)
-            competitors = self.get_competitors(result["runners"])
-            draw = self.get_draw(result["runners"])
-            surface = self.get_surface(result)
-            horse_data = self.get_horse_data(result["runners"])
-            
-            pprint.pprint(horse_data)
+            data['race']['prize_money'] = self.format_prize_money(result["runners"][0]["prize"])
+            data['race']['race_index'] = self.get_race_index(data['race']['date'], data['race']['racecourse_id'], data['race']['local_time'])
+            data['race']['local_weather'] = self.get_weather(result["course"], data['race']['date'], data['race']['local_time'])
+            data['race']['competitors'] = self.get_competitors(result["runners"])
+            data['race']['draw'] = self.get_draw(result["runners"])
+            data['race']['surface'] = self.get_surface(result)
+            data['horse'] = self.get_horse_data(result["runners"])
+        
+            db.populate_dataset_entry(data)
+        return
             
     def get_competitors(self, runners):
         return [runner["horse_id"] for runner in runners]
@@ -83,8 +101,8 @@ class Results():
         if decimal_separator not in [".", ","]:
             decimal_separator = None
 
-        trimer = re.compile(rf'[^\d{decimal_separator}]+')
-        trimmed = trimer.sub('', prize_money)
+        trimmer = re.compile(rf'[^\d{decimal_separator}]+')
+        trimmed = trimmer.sub('', prize_money)
 
         if decimal_separator == ",":
             trimmed = trimmed.replace(",", ".")
@@ -109,19 +127,24 @@ class Results():
     
     def get_weather(self, racecourse_name, date, time):
         time_period = self.format_date_time(date, time)     
-   
-        # Set time period
-        start = datetime(time_period["year"], time_period["month"], time_period["day"], time_period["hour"])
-        end = datetime(time_period["year"], time_period["month"], time_period["day"], time_period["hour"], time_period["minute"])
-        course_coords = self.get_location(racecourse_name)     
-            
-        stations = Stations()
-        stations = stations.nearby(course_coords[0], course_coords[1])
-        station = stations.fetch(1).index[0]
+        try:
+            # Set time period
+            start = datetime(time_period["year"], time_period["month"], time_period["day"], time_period["hour"])
+            end = datetime(time_period["year"], time_period["month"], time_period["day"], time_period["hour"], time_period["minute"])
+            course_coords = self.get_location(racecourse_name)     
+                
+            stations = Stations()
+            stations = stations.nearby(course_coords[0], course_coords[1])
+            station = stations.fetch(1).index[0]
 
-        data = Hourly(station, start, end)
-        data = data.fetch()
-        data_dict = data.iloc[0].to_dict()
+            data = Hourly(station, start, end)
+            data = data.fetch()
+        
+            data_dict = data.iloc[0].to_dict()
+        
+        except Exception as e:
+            print(e)
+            data_dict = "-"
         return data_dict
         
     def get_location(self, racecourse_name):
@@ -138,23 +161,34 @@ class Results():
     
     def get_horse_data(self, runners):
         data = {}
-        #horse data 
+        #horse data
         for runner in runners:
-            data[runners.index(runner)] = {}
-            data[runners.index(runner)]['name'], data[runners.index(runner)]['nationality'], data[runners.index(runner)]['sire'] = self.parse_horse_name_details(runner)
-
-            data[runners.index(runner)]['sex'] = runner["sex"]
-            data[runners.index(runner)]['age'] = runner["age"]
-            data[runners.index(runner)]['headgear'] = runner["headgear"]
-            data[runners.index(runner)]['dosage'] = self.get_dosage(runner["horse"], data[runners.index(runner)]['sire'])
-            data[runners.index(runner)]['weight'] = runner["weight_lbs"]
-            data[runners.index(runner)]['form'] = self.get_form(runner["horse_id"])
-            data[runners.index(runner)]['weight_change'] = self.calculate_weight_change(data[runners.index(runner)]['weight'], data[runners.index(runner)]['form'][0]["weight"])
-            data[runners.index(runner)]['jockey'] = runner["jockey_id"]
-            data[runners.index(runner)]['trainer'] = runner["trainer_id"]
-            data[runners.index(runner)]['owner'] = runner["owner_id"]
-            data[runners.index(runner)]['odds'] = runner["sp_dec"]
-            data[runners.index(runner)]['rating'] = runner["or"] #official rating
+            print(f"Parsing horse {runners.index(runner) + 1} of {len(runners)} runners")
+            stored_data = db.check_horse(runner["horse_id"]) #id, name, sex, sire, dosage
+            index = str(runners.index(runner))
+            data[index] = {}
+            data[index]['name'], data[index]['nationality'], data[index]['sire'] = self.parse_horse_name_details(runner)
+            data[index]['sex'] = runner["sex"]
+            data[index]['age'] = runner["age"]
+            data[index]['headgear'] = runner["headgear"]
+            data[index]['dosage'] = stored_data["dosage"] if stored_data else self.get_dosage(runner["horse"], data[index]['sire'])
+            data[index]['weight'] = runner["weight_lbs"]
+            data[index]['form'] = self.get_form(runner["horse_id"])
+            data[index]['weight_change'] = self.calculate_weight_change(data[index]['weight'], data[index]['form'][0]["weight"])
+            data[index]['jockey'] = runner["jockey_id"]
+            data[index]['trainer'] = runner["trainer_id"]
+            data[index]['owner'] = runner["owner_id"]
+            data[index]['odds'] = runner["sp_dec"]
+            data[index]['rating'] = runner["or"] #official rating
+            if not stored_data:
+                horse_data = {
+                    "horse_id": runner["horse_id"],
+                    "name": data[index]['name'],
+                    "sex": runner["sex"],
+                    "sire": data[index]['sire'],
+                    "dosage": data[index]['dosage'],
+                }
+                db.populate_horse(horse_data)
             
         return data
     
@@ -253,8 +287,12 @@ class Results():
         
 def main():
     results = Results()
-    
-    results.get_results()
+    limit = 10 #number of races per request
+    i = 1
+    while True: 
+        results.get_results(limit=limit, skip=limit*i) #this will error out when it reaches the end of the results, works fine, but maybe can be handled better
+        i+=1
+        
     # results.get_results()
 if __name__ == "__main__":
     main()
