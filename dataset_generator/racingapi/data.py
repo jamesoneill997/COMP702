@@ -13,6 +13,7 @@ from requests.auth import HTTPBasicAuth
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from meteostat import Hourly, Stations
+from multiprocessing import Pool
 
 import pprint
 
@@ -29,6 +30,106 @@ class RaceCard():
     def __init__(self):
         self.id = None
 class Results():
+    ID_TYPE_TOKENS = {
+        "hrs": 1,
+        "jck": 2,
+        "own": 3,
+        "crs": 4,
+        '':-1,
+        
+    }
+    
+    GOING_TOKENS = {
+        "standard": 1,
+        "slow": 2,
+        "fast": 3,
+        "standard to slow": 4,
+        "standard to fast": 5,
+        "hard": 6,
+        "firm": 7,
+        "good to firm": 8,
+        "good": 9,
+        "good to soft": 10,
+        "soft": 11,
+        "heavy": 12,
+        "good to yielding": 13,
+        "yielding": 14,
+        "yielding to soft": 15,
+        "very soft": 16,
+        "sloppy": 17,
+        "wet fast": 18,
+        "muddy": 19,
+        "sealed": 20,
+        '':-1,
+        
+    }
+    
+    SURFACE_TOKENS = {
+        "dirt": 1,
+        "turf": 2,
+        "all weather": 3,
+        "synthetic": 4,
+        '':-1,
+        
+    }
+    COUNTRY_TOKENS = {
+        "IRE": 1,
+        "GB": 2,
+        "USA": 3,
+        "GER": 4,
+        "FR": 5,
+        "HK": 6,
+        "AUS": 7,
+        "JPN": 8,
+        "SIN": 9,
+        "CAN": 10,
+        "NZ": 11,
+        "SAF": 12,
+        '':-1,
+        
+    }
+    
+    SEX_TOKENS = {
+        "F": 1,
+        "C": 2,
+        "G": 3,
+        "H": 4,
+        "M": 5,
+        "R": 6,
+        '':-1,
+        
+    }
+    
+    HEADGEAR_TOKENS = {
+        "h": 1,
+        "b": 2,
+        "p": 3,
+        "ht": 4,
+        "tp": 5,
+        "v": 6,
+        "t": 7,
+        "tb": 8,
+        "tv": 9,
+        "hb": 10,
+        "htp": 11,
+        "hp": 12,
+        "het": 13,
+        "eb": 14,
+        '':-1,
+        
+    }
+    
+    GRADE_TOKENS = {
+        "grade 1": 1,
+        "grade 2": 2,
+        "grade 3": 3,
+        "group 1": 4,
+        "group 2": 5,
+        "group 3": 6,
+        "listed": 7,
+        '':-1,
+    }
+
     def __init__(self):
         self.id = None
         self.endpoint = os.getenv("RACING_API_URL") + "/results"
@@ -51,8 +152,14 @@ class Results():
         )
 
         results_list = response.json()["results"]
+        return results_list
+
+    def process_results(self, results_list):
         print(f'Processing {len(results_list)} entries...')
         for result in results_list:
+            if not self.validate_label(result):
+                print("No valid label found for this race - skipping")
+                continue
             if db.check_dataset_entry(result["race_id"]): #skip races we've already processed
                 print(f"Skipping race {result['race_id']} - entry already exists")
                 continue
@@ -61,37 +168,40 @@ class Results():
                 'race': {},
                 'horse': {},
             }
+            surface = self.get_surface(result)
+            draw = self.get_draw(result["runners"])
             #race data
-            data['race']['id'] = result["race_id"]
-            data['race']['date'] = result["date"]
-            data['race']['going'] = result["going"]
-            data['race']['racecourse_id'] = result["course_id"]
-            data['race']['country'] = result["region"]
-            data['race']['is_flat']= result["type"] == "Flat"
-            data['race']['distance'] = result["dist_y"]
-            data['race']['local_time'] = result["off"]
-            data['race']['race_rating'] = result["pattern"]
-            data['race']['winner'] = result["runners"][0]
+            data['race']['id'] = int(self.strip_id_prefix(result["race_id"]))
+            data['race']['date'] = self.unix_time(result["date"])
+            data['race']['going'] = self.GOING_TOKENS[result["going"].lower()] if self.GOING_TOKENS[result["going"].lower()] else -1
+            data['race']['racecourse_id'] = int(self.strip_id_prefix(result["course_id"]))
+            data['race']['country'] = self.COUNTRY_TOKENS[result["region"]] if self.COUNTRY_TOKENS[result["region"]] else -1
+            data['race']['is_flat']= int(result["type"] == "Flat")
+            data['race']['distance'] = int(result["dist_y"]) 
+            data['race']['local_time'] = int(self.convert_to_military_time(result["off"]))
+            data['race']['race_rating'] = self.GRADE_TOKENS[result["pattern"].lower()] if self.GRADE_TOKENS[result["pattern"].lower()] else -1
+            data['race']['winner'] = int(result["runners"][0]["draw"] )#this is the label, super important!
             
             #race data that needs to be formatted or calculated
             data['race']['prize_money'] = self.format_prize_money(result["runners"][0]["prize"])
-            data['race']['race_index'] = self.get_race_index(data['race']['date'], data['race']['racecourse_id'], data['race']['local_time'])
-            data['race']['local_weather'] = self.get_weather(result["course"], data['race']['date'], data['race']['local_time'])
-            data['race']['competitors'] = self.get_competitors(result["runners"])
-            data['race']['draw'] = self.get_draw(result["runners"])
-            data['race']['surface'] = self.get_surface(result)
+            data['race']['race_index'] = self.get_race_index(result['date'], result['course_id'], result['off'])
+            data['race']['local_weather'] = self.get_weather(result["course"], result['date'], result['off'])
+            data['race']['draw'] = {}
+            for i in range(len(draw)):
+                data['race']['draw'][str(i)] = int(draw[i])
+            data['race']['surface'] = self.SURFACE_TOKENS[surface] if self.SURFACE_TOKENS[surface] else -1
             data['horse'] = self.get_horse_data(result["runners"])
         
-            db.populate_dataset_entry(data)
+            db.populate_dataset_entry(data, result["race_id"])
         return
             
     def get_competitors(self, runners):
         return [runner["horse_id"] for runner in runners]
     
     def get_surface(self, race):
-        dirt_going = ["fast", "wet fast", "good", "muddy", "sloppy", "slow", "sealed"] # for dirt tracks, these are the going descriptions, see https://en.wikipedia.org/wiki/Going_(horse_racing))
+        dirt_going = ["fast", "wet fast", "good", "muddy", "sloppy", "slow", "sealed"] # for dirt tracks, these are the going descriptions, see https://en.wikipedia.org/wiki/Going_(horse_racing)
         country = race["region"]
-        return "dirt" if race["going"] in dirt_going and country == "USA" else "turf"
+        return "dirt" if race["going"].lower() in dirt_going and country == "USA" else "turf"
 
     def format_prize_money(self, prize_money):
         trimmer = re.compile(r'[^\d.,]+')
@@ -113,6 +223,9 @@ class Results():
     def get_draw(self, runners):
         return [runner["draw"] for runner in runners]
     
+    def validate_label(self, data):
+        return data["runners"][0]["draw"] not in [None, ""]
+
     def format_date_time(self, date, time):
         date_time = {}
         date_split = date.split("-")
@@ -144,7 +257,7 @@ class Results():
         
         except Exception as e:
             print(e)
-            data_dict = "-"
+            data_dict = -1
         return data_dict
         
     def get_location(self, racecourse_name):
@@ -164,28 +277,33 @@ class Results():
         #horse data
         for runner in runners:
             print(f"Parsing horse {runners.index(runner) + 1} of {len(runners)} runners")
+            form, previous_weight = self.get_form_and_weight(runner["horse_id"])
             stored_data = db.check_horse(runner["horse_id"]) #id, name, sex, sire, dosage
+            horse_has_dosage = db.horse_has_dosage(runner["horse_id"])
             index = str(runners.index(runner))
             data[index] = {}
-            data[index]['name'], data[index]['nationality'], data[index]['sire'] = self.parse_horse_name_details(runner)
-            data[index]['sex'] = runner["sex"]
-            data[index]['age'] = runner["age"]
-            data[index]['headgear'] = runner["headgear"]
-            data[index]['dosage'] = stored_data["dosage"] if stored_data else self.get_dosage(runner["horse"], data[index]['sire'])
-            data[index]['weight'] = runner["weight_lbs"]
-            data[index]['form'] = self.get_form(runner["horse_id"])
-            data[index]['weight_change'] = self.calculate_weight_change(data[index]['weight'], data[index]['form'][0]["weight"])
-            data[index]['jockey'] = runner["jockey_id"]
-            data[index]['trainer'] = runner["trainer_id"]
-            data[index]['owner'] = runner["owner_id"]
-            data[index]['odds'] = runner["sp_dec"]
-            data[index]['rating'] = runner["or"] #official rating
+            data[index]['id'] = int(self.strip_id_prefix(runner["horse_id"]))
+            data[index]['nationality'] = self.COUNTRY_TOKENS[self.get_nationality(runner["horse"])] if self.COUNTRY_TOKENS[self.get_nationality(runner["horse"])] else -1
+            data[index]['sex'] = self.SEX_TOKENS[runner["sex"]] if self.SEX_TOKENS[runner["sex"]] else -1
+            data[index]['age'] = int(runner["age"]) if runner["age"] else -1
+            data[index]['headgear'] = self.HEADGEAR_TOKENS[runner["headgear"]] if self.HEADGEAR_TOKENS[runner["headgear"]] else -1
+            data[index]['dosage'] = stored_data["dosage"] if horse_has_dosage and stored_data else self.get_dosage(runner["horse"], runner['sire'])
+            data[index]['weight'] = int(runner["weight_lbs"]) if runner["weight_lbs"] else -1
+            for i in range(len(form)): 
+                data[index][f'form_{i}'] = int(form[i])
+            data[index]['weight_change'] = self.calculate_weight_change(previous_weight, data[index]['weight'])
+            data[index]['jockey'] = int(self.strip_id_prefix(runner["jockey_id"])) 
+            data[index]['trainer'] = int(self.strip_id_prefix(runner["trainer_id"])) 
+            data[index]['owner'] = int(self.strip_id_prefix(runner["owner_id"]))
+            data[index]['odds'] = float(runner["sp_dec"]) if runner["sp_dec"] not in [None, "", "–"] else -1
+            data[index]['rating'] = int(runner["or"]) if runner["or"] not in [None, "", "–"] else -1
+            data[index]['draw'] = int(runner["draw"]) if runner["draw"] else -1
             if not stored_data:
                 horse_data = {
-                    "horse_id": runner["horse_id"],
-                    "name": data[index]['name'],
-                    "sex": runner["sex"],
-                    "sire": data[index]['sire'],
+                    "horse_id": self.strip_id_prefix(runner["horse_id"]),
+                    "name": runner['horse'],
+                    "sex": self.SEX_TOKENS[runner["sex"]] if self.SEX_TOKENS[runner["sex"]] else -1,
+                    "sire": runner['sire'],
                     "dosage": data[index]['dosage'],
                 }
                 db.populate_horse(horse_data)
@@ -195,7 +313,7 @@ class Results():
     #Will be an object, not an array of numbers as commonly seen in the industry
     #This allows for some context around how they performed, relative to the race
     #eg. They could have come down/gone up in class, or had a significant weight change
-    def get_form(self, horse, max_history=6):
+    def get_form_and_weight(self, horse, max_history=6):
         form = []
         horse_results_endpoint = os.environ["RACING_API_URL"] + f'/horses/{horse}/results'
         params = {
@@ -212,42 +330,45 @@ class Results():
         )
         results_list = response.json()["results"]
         for i in range(min(max_history, len(results_list))):
-            result_ctx = {}
+            # result_ctx = {}
             pos = self.get_position(horse, results_list[i])
             
             #race data
-            result_ctx["race_id"] = results_list[i]["race_id"]
-            result_ctx["date"] = results_list[i]["date"]
-            result_ctx["course"] = results_list[i]["course"]
-            result_ctx["time_start"] = results_list[i]["off"]
-            result_ctx["race_type"] = results_list[i]["type"]
-            result_ctx["race_class"] = results_list[i]["class"]
-            result_ctx["race_distance"] = results_list[i]["dist_y"]
-            result_ctx["going"] = results_list[i]["going"]
+            # result_ctx["race_id"] = self.strip_id_prefix(results_list[i]["race_id"])
+            # result_ctx["date"] = self.unix_time(results_list[i]["date"])
+            # result_ctx["course"] = self.strip_id_prefix(results_list[i]["course"])
+            # result_ctx["time_start"] = self.convert_to_military_time(results_list[i]["off"])
+            # result_ctx["race_type"] = results_list[i]["type"] #tokenize
+            # result_ctx["race_class"] = self.strip_id_prefix(results_list[i]["class"])
+            # result_ctx["race_distance"] = results_list[i]["dist_y"]
+            # result_ctx["going"] = self.GOING_TOKENS[results_list[i]["going"]] if self.GOING_TOKENS[results_list[i]["going"]] else -1 #tokenize
             
             #horse data
-            result_ctx["finishing_position"] = pos["position"]
-            result_ctx["starting_price"] = results_list[i]["runners"][pos["index"]]["sp_dec"]
-            result_ctx["weight"] = results_list[i]["runners"][pos["index"]]["weight_lbs"]
-            result_ctx["jockey"] = results_list[i]["runners"][pos["index"]]["jockey_id"]
-            result_ctx["performance_comment"] = results_list[i]["runners"][pos["index"]]["comment"] #thought this might be interesting to add
+            # result_ctx["finishing_position"] = pos["position"]
+            # result_ctx["starting_price"] = results_list[i]["runners"][pos["index"]]["sp_dec"]
+            # result_ctx["weight"] = results_list[i]["runners"][pos["index"]]["weight_lbs"]
+            # result_ctx["jockey"] = self.strip_id_prefix(results_list[i]["runners"][pos["index"]]["jockey_id"])
             
-            form.append(result_ctx)     
+            form.append(pos)
+        try:
+            last_weight = results_list[0]["runners"][pos["index"]]["weight_lbs"]
+        except Exception as e:
+            last_weight = -1
+        
             
-        return form
+        return form, last_weight
     
     def get_position(self, horse_id, result):
         for runner in result["runners"]:
             if runner["horse_id"] == horse_id:
-                return {
-                    "position": runner["position"],
-                    "index": result["runners"].index(runner)
-                    }
+                return  runner["position"] # "index": result["runners"].index(runner)
+    
         
     def calculate_weight_change(self, previous_weight, current_weight):
-        return float(current_weight) - float(previous_weight)
+        return 0 if previous_weight == -1 else float(current_weight) - float(previous_weight)
     
     def get_race_index(self, date, course_id, time):
+        print(date, course_id, time)
         params = {
             'start_date': date,
             'end_date': date,
@@ -258,13 +379,14 @@ class Results():
             auth=HTTPBasicAuth(
                 os.getenv('RACING_API_USERNAME'),
                 os.getenv('RACING_API_PASSWORD'),    
-            ), 
+            ),
             params=params
             )
         results = response.json()
         i = 1
+        
         for result in results["results"]:
-            if result["off"] == time:
+            if self.convert_to_military_time(result["off"]) == self.convert_to_military_time(time):
                 return i
             i+=1
             
@@ -284,14 +406,64 @@ class Results():
         sire = runner["sire"]
 
         return(horse_name.strip(), nationality.strip(), sire.strip())
+    
+    def strip_id_prefix(self, doc_id):
+        prefix, _, rest = doc_id.partition('_')
+        if prefix in self.ID_TYPE_TOKENS:
+            return f"{self.ID_TYPE_TOKENS[prefix]}{rest}"
+        else:
+            return rest
         
+    def unix_time(self, time):
+        epoch = datetime.strptime(time, "%Y-%m-%d").timestamp()
+        return epoch
+    
+    def convert_to_military_time(self, time):
+        return time.replace(":", "")
+    
+    def get_race_info(self, race_id):
+        race_pro_endpoint = os.environ["RACING_API_URL"] + f'/racecards/{race_id}/pro'
+
+        params = {}
+        response = requests.request(
+            "GET", 
+            race_pro_endpoint, 
+            auth=HTTPBasicAuth(
+                os.getenv('RACING_API_USERNAME'),
+                os.getenv('RACING_API_PASSWORD')), 
+            params=params,
+        )
+        
+        print(response.json())
+        
+    def get_nationality(self, horse_name):
+        pattern = r'\((\w+)\)$'  # Matches text inside parentheses at the end of the string
+        match = re.search(pattern, horse_name)
+        if match:
+            return match.group(1)
+        else:
+            return None
+
 def main():
     results = Results()
+    # results.get_race_info("rac_10988926")
     limit = 10 #number of races per request
-    i = 1
+    i = 76
+    j = 77
+    k = 78
+    l = 79
     while True: 
-        results.get_results(limit=limit, skip=limit*i) #this will error out when it reaches the end of the results, works fine, but maybe can be handled better
-        i+=1
+        res_a = results.get_results(limit=limit, skip=limit*i) #this will error out when it reaches the end of the results, works fine, but maybe can be handled better
+        res_b = results.get_results(limit=limit, skip=limit*j) #this will error out when it reaches the end of the results, works fine, but maybe can be handled better
+        res_c = results.get_results(limit=limit, skip=limit*k) #this will error out when it reaches the end of the results, works fine, but maybe can be handled better
+        res_d = results.get_results(limit=limit, skip=limit*l) #this will error out when it reaches the end of the results, works fine, but maybe can be handled better
+        pool = Pool(os.cpu_count()-2)
+        pool.map(results.process_results, [res_a, res_b, res_c, res_d])
+        i+=4
+        j+=4
+        k+=4
+        l+=4
+
         
     # results.get_results()
 if __name__ == "__main__":

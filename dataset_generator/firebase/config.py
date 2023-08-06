@@ -6,6 +6,9 @@ from dotenv import load_dotenv
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import firestore
+from firebase_admin.firestore import FieldFilter
+
+from pedigree.data import HorsePedigree
 
 #config
 cred = credentials.Certificate('oddsgenie-firebase.json')
@@ -64,6 +67,13 @@ class DB():
             print(f'Horse not found: {horse_id}')
             return False
         
+    def horse_has_dosage(self, horse_id):
+        doc_ref = db.collection("horses").document(horse_id)
+        
+        doc = doc_ref.get()
+        doc = doc.to_dict()
+        return doc["dosage"]["cd"] is not None
+        
     def check_dataset_entry(self, race_id):
         doc_ref = db.collection("dataset").document(race_id)
 
@@ -74,33 +84,49 @@ class DB():
         else:
             print(f'Dataset entry not found: {race_id}')
             return False
-    def populate_dataset_entry(self, data):
+    def populate_dataset_entry(self, data, doc_id):
         print("Attempting to add dataset entry...")
         try:
-            doc_ref = db.collection("dataset").document(data["race"]["id"])
+            doc_ref = db.collection("dataset").document(doc_id)
             doc_ref.set(data)
-            print(f"Created dataset entry for race {data['race']['id']}")
+            print(f"Created dataset entry for race {doc_id}")
         except Exception as e:
-            print(f'Error adding dataset entry: {data}')
+            print(f'Error adding dataset entry: {doc_id}')
             print(f'Error: {e}')
             return 1
         return 0
+    
+    def dosage_blank_horses(self):
+        # Create a reference to the cities collection
+        horses_ref = db.collection("dataset")
+
+        # Create a query against the collection
+        query_ref = horses_ref.where(filter=FieldFilter('horse', "", None))
+        results = query_ref.get()
+        return results
 
 def main():
-    test_horse = {
-        "horse_id": "test_floats",
-        "horse_name": "red rum",
-        "sex": "F",
-        "sire": "moyganny lass",
-        "dosage": {
-            "di": 1.5,
-            "cd": 1.3,
-            },
-    }
     db = DB()
-    db.check_horse("james")
-    db.check_horse("test_me")
-    db.populate_horse(test_horse)
-    db.check_horse("test_this_out")
+    print(db.dosage_blank_horses())
+    # print("Starting...")
+    # blanks = DB().dosage_blank_horses()
+    # for blank in blanks:
+    #     print(f"{blanks.index(blank)+1} of {len(blanks)}")
+    #     try:
+    #         horse_data = blank.to_dict()
+    #         for i in range(len(horse_data["horse"])):
+    #             horse_name = horse_data["horse"][i]["name"]
+    #             sire = horse_data["horse"][i]["sire"][:horse_data["horse"][i]["sire"].index("(")-1]
+    #             dosage = HorsePedigree(horse_name, sire).dosage
+    #             print(f'Dosage for {horse_name} is {dosage}')
+    #             horse_data["horse"]["dosage"] = dosage
+    #             print(f"Adding dosage {dosage} to horse {horse_name}")
+    #             print(horse_data)
+    #             #DB().populate_horse(horse_data)
+    #     except Exception as err:
+    #         print(f'Error adding dosage: {horse_data}')
+    #         print(f'Error: {err}')
+    #         continue
+        
 if __name__ == "__main__":
     main()

@@ -53,7 +53,7 @@ class HorsePedigree():
                     horse, nationality = self.parse_horse_name_details(cells[j].text.strip())
                     curr_entry['horse'] = horse.lower()
                     curr_entry['nationality'] = nationality
-                    
+
                 else:
                     curr_entry[headings[j].lower()] = cells[j].text.strip().lower()
                 
@@ -82,9 +82,11 @@ class HorsePedigree():
         horse_data = soup.findAll('table')[4]
         
         (di, cd) = self.extract_match(str(horse_data))
+        
         if di and cd:
             di_cd['di'] = di
             di_cd['cd'] = cd
+            
         return di_cd
 
     def extract_match(self, html_string):
@@ -120,4 +122,13 @@ class HorsePedigree():
             if sire_name.lower().strip().replace(' ', '') in v['sire'].lower().strip().replace(' ', ''):
                 print(f"Found {self.name} with sire {v['sire'].lower().replace(' ', '')} at index {k}")
                 return '' if k == 0 else str(k+1) #index 0 on pedigree website doesn't have a index suffix
-        return -1 #error
+        return -1 #error        
+
+
+# def main():
+#     horse_name="seinesational"
+#     sire="Champs Elysees"
+#     pedigree = HorsePedigree(horse_name, sire)
+#     print(pedigree.dosage)
+# if __name__ == "__main__":
+#     main()
