@@ -190,7 +190,8 @@ class Results():
             for i in range(len(draw)):
                 data['race']['draw'][str(i)] = int(draw[i])
             data['race']['surface'] = self.SURFACE_TOKENS[surface] if self.SURFACE_TOKENS[surface] else -1
-            data['horse'] = self.get_horse_data(result["runners"])
+            for runner in result["runners"]:
+                data[f'horse_{result["runners"].index(runner)}'] = self.get_horse_data(runner)
         
             db.populate_dataset_entry(data, result["race_id"])
         return
@@ -272,42 +273,38 @@ class Results():
             return [0,0]
         return [float(lat), float(lon)]
     
-    def get_horse_data(self, runners):
+    def get_horse_data(self, runner):
         data = {}
         #horse data
-        for runner in runners:
-            print(f"Parsing horse {runners.index(runner) + 1} of {len(runners)} runners")
-            form, previous_weight = self.get_form_and_weight(runner["horse_id"])
-            stored_data = db.check_horse(runner["horse_id"]) #id, name, sex, sire, dosage
-            horse_has_dosage = db.horse_has_dosage(runner["horse_id"])
-            index = str(runners.index(runner))
-            data[index] = {}
-            data[index]['id'] = int(self.strip_id_prefix(runner["horse_id"]))
-            data[index]['nationality'] = self.COUNTRY_TOKENS[self.get_nationality(runner["horse"])] if self.COUNTRY_TOKENS[self.get_nationality(runner["horse"])] else -1
-            data[index]['sex'] = self.SEX_TOKENS[runner["sex"]] if self.SEX_TOKENS[runner["sex"]] else -1
-            data[index]['age'] = int(runner["age"]) if runner["age"] else -1
-            data[index]['headgear'] = self.HEADGEAR_TOKENS[runner["headgear"]] if self.HEADGEAR_TOKENS[runner["headgear"]] else -1
-            data[index]['dosage'] = stored_data["dosage"] if horse_has_dosage and stored_data else self.get_dosage(runner["horse"], runner['sire'])
-            data[index]['weight'] = int(runner["weight_lbs"]) if runner["weight_lbs"] else -1
-            for i in range(len(form)): 
-                data[index][f'form_{i}'] = int(form[i])
-            data[index]['weight_change'] = self.calculate_weight_change(previous_weight, data[index]['weight'])
-            data[index]['jockey'] = int(self.strip_id_prefix(runner["jockey_id"])) 
-            data[index]['trainer'] = int(self.strip_id_prefix(runner["trainer_id"])) 
-            data[index]['owner'] = int(self.strip_id_prefix(runner["owner_id"]))
-            data[index]['odds'] = float(runner["sp_dec"]) if runner["sp_dec"] not in [None, "", "–"] else -1
-            data[index]['rating'] = int(runner["or"]) if runner["or"] not in [None, "", "–"] else -1
-            data[index]['draw'] = int(runner["draw"]) if runner["draw"] else -1
-            if not stored_data:
-                horse_data = {
-                    "horse_id": self.strip_id_prefix(runner["horse_id"]),
-                    "name": runner['horse'],
-                    "sex": self.SEX_TOKENS[runner["sex"]] if self.SEX_TOKENS[runner["sex"]] else -1,
-                    "sire": runner['sire'],
-                    "dosage": data[index]['dosage'],
-                }
-                db.populate_horse(horse_data)
-            
+        form, previous_weight = self.get_form_and_weight(runner["horse_id"])
+        stored_data = db.check_horse(runner["horse_id"]) #id, name, sex, sire, dosage
+        horse_has_dosage = db.horse_has_dosage(runner["horse_id"])
+        data['id'] = int(self.strip_id_prefix(runner["horse_id"]))
+        data['nationality'] = self.COUNTRY_TOKENS[self.get_nationality(runner["horse"])] if self.COUNTRY_TOKENS[self.get_nationality(runner["horse"])] else -1
+        data['sex'] = self.SEX_TOKENS[runner["sex"]] if self.SEX_TOKENS[runner["sex"]] else -1
+        data['age'] = int(runner["age"]) if runner["age"] else -1
+        data['headgear'] = self.HEADGEAR_TOKENS[runner["headgear"]] if self.HEADGEAR_TOKENS[runner["headgear"]] else -1
+        data['dosage'] = stored_data["dosage"] if horse_has_dosage and stored_data else self.get_dosage(runner["horse"], runner['sire'])
+        data['weight'] = int(runner["weight_lbs"]) if runner["weight_lbs"] else -1
+        for i in range(len(form)): 
+            data[f'form_{i}'] = int(form[i])
+        data['weight_change'] = self.calculate_weight_change(previous_weight, data['weight'])
+        data['jockey'] = int(self.strip_id_prefix(runner["jockey_id"])) 
+        data['trainer'] = int(self.strip_id_prefix(runner["trainer_id"])) 
+        data['owner'] = int(self.strip_id_prefix(runner["owner_id"]))
+        data['odds'] = float(runner["sp_dec"]) if runner["sp_dec"] not in [None, "", "–"] else -1
+        data['rating'] = int(runner["or"]) if runner["or"] not in [None, "", "–"] else -1
+        data['draw'] = int(runner["draw"]) if runner["draw"] else -1
+        if not stored_data:
+            horse_data = {
+                "horse_id": self.strip_id_prefix(runner["horse_id"]),
+                "name": runner['horse'],
+                "sex": self.SEX_TOKENS[runner["sex"]] if self.SEX_TOKENS[runner["sex"]] else -1,
+                "sire": runner['sire'],
+                "dosage": data['dosage'],
+            }
+            db.populate_horse(horse_data)
+        
         return data
     
     #Will be an object, not an array of numbers as commonly seen in the industry
