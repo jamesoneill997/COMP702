@@ -85,6 +85,28 @@ class Results():
         "CAN": 10,
         "NZ": 11,
         "SAF": 12,
+        "BRZ": 13,
+        "UAE": 14,
+        "ITY": 15,
+        "ARG": 16,
+        "KOR": 17,
+        "IND": 18,
+        "SPA": 19,
+        "TUR": 20,
+        "CZE": 21,
+        "SWE": 22,
+        "NOR": 23,
+        "DEN": 24,
+        "POL": 25,
+        "BEL": 26,
+        "RUS": 27,
+        "CHI": 28,
+        "MAC": 29,
+        "PHI": 30,
+        "PER": 31,
+        "URU": 32,
+        "POR": 33,
+        "MEX": 34,
         '':-1,
         
     }
@@ -115,8 +137,10 @@ class Results():
         "hp": 12,
         "het": 13,
         "eb": 14,
+        "htb": 15,
+        "e/s": 16,
+        "et": 17,
         '':-1,
-        
     }
     
     GRADE_TOKENS = {
@@ -128,6 +152,20 @@ class Results():
         "group 3": 6,
         "listed": 7,
         '':-1,
+    }
+    
+    FORM_TOKENS = {
+        "PU": 100,
+        "F": 101,
+        "UR": 102,
+        "NR": 103,
+        "R": 104,
+        "BD": 105,
+        "CO": 106,
+        "RO": 107,
+        "SU": 108,
+        "RR": 109,
+        "": -1,
     }
 
     def __init__(self):
@@ -157,43 +195,45 @@ class Results():
     def process_results(self, results_list):
         print(f'Processing {len(results_list)} entries...')
         for result in results_list:
-            if not self.validate_label(result):
-                print("No valid label found for this race - skipping")
-                continue
-            if db.check_dataset_entry(result["race_id"]): #skip races we've already processed
-                print(f"Skipping race {result['race_id']} - entry already exists")
-                continue
-            print(f"Parsing result {results_list.index(result) + 1} of {len(results_list)} results")
-            data = {
-                'race': {},
-                'horse': {},
-            }
-            surface = self.get_surface(result)
-            draw = self.get_draw(result["runners"])
-            #race data
-            data['race']['id'] = int(self.strip_id_prefix(result["race_id"]))
-            data['race']['date'] = self.unix_time(result["date"])
-            data['race']['going'] = self.GOING_TOKENS[result["going"].lower()] if self.GOING_TOKENS[result["going"].lower()] else -1
-            data['race']['racecourse_id'] = int(self.strip_id_prefix(result["course_id"]))
-            data['race']['country'] = self.COUNTRY_TOKENS[result["region"]] if self.COUNTRY_TOKENS[result["region"]] else -1
-            data['race']['is_flat']= int(result["type"] == "Flat")
-            data['race']['distance'] = int(result["dist_y"]) 
-            data['race']['local_time'] = int(self.convert_to_military_time(result["off"]))
-            data['race']['race_rating'] = self.GRADE_TOKENS[result["pattern"].lower()] if self.GRADE_TOKENS[result["pattern"].lower()] else -1
-            data['race']['winner'] = int(result["runners"][0]["draw"] )#this is the label, super important!
+            try:
+                if not self.validate_label(result):
+                    print("No valid label found for this race - skipping")
+                    continue
+                if db.check_dataset_entry(result["race_id"]): #skip races we've already processed
+                    print(f"Skipping race {result['race_id']} - entry already exists")
+                    continue
+                print(f"Parsing result {results_list.index(result) + 1} of {len(results_list)} results")
+                data = {}
+                surface = self.get_surface(result)
+                draw = self.get_draw(result["runners"])
+                #race data
+                data['id'] = int(self.strip_id_prefix(result["race_id"]))
+                data['date'] = self.unix_time(result["date"])
+                data['going'] = self.GOING_TOKENS[result["going"].lower()] if self.GOING_TOKENS[result["going"].lower()] else -1
+                data['racecourse_id'] = int(self.strip_id_prefix(result["course_id"]))
+                data['country'] = self.COUNTRY_TOKENS[result["region"]] if self.COUNTRY_TOKENS[result["region"]] else -1
+                data['is_flat']= int(result["type"] == "Flat")
+                data['distance'] = int(result["dist_y"]) 
+                data['local_time'] = int(self.convert_to_military_time(result["off"]))
+                data['race_rating'] = self.GRADE_TOKENS[result["pattern"].lower()] if self.GRADE_TOKENS[result["pattern"].lower()] else -1
+                data['winner'] = int(result["runners"][0]["draw"] )#this is the label, super important!
+                
+                #race data that needs to be formatted or calculated
+                data['prize_money'] = self.format_prize_money(result["runners"][0]["prize"])
+                data['race_index'] = self.get_race_index(result['date'], result['course_id'], result['off'])
+                data['local_weather'] = self.get_weather(result["course"], result['date'], result['off'])
+                data['draw'] = {}
+                for i in range(len(draw)):
+                    data['draw'][str(i)] = int(draw[i])
+                data['surface'] = self.SURFACE_TOKENS[surface] if self.SURFACE_TOKENS[surface] else -1
+                for runner in result["runners"]:
+                    data[f'horse_{result["runners"].index(runner)}'] = self.get_horse_data(runner)
             
-            #race data that needs to be formatted or calculated
-            data['race']['prize_money'] = self.format_prize_money(result["runners"][0]["prize"])
-            data['race']['race_index'] = self.get_race_index(result['date'], result['course_id'], result['off'])
-            data['race']['local_weather'] = self.get_weather(result["course"], result['date'], result['off'])
-            data['race']['draw'] = {}
-            for i in range(len(draw)):
-                data['race']['draw'][str(i)] = int(draw[i])
-            data['race']['surface'] = self.SURFACE_TOKENS[surface] if self.SURFACE_TOKENS[surface] else -1
-            for runner in result["runners"]:
-                data[f'horse_{result["runners"].index(runner)}'] = self.get_horse_data(runner)
-        
-            db.populate_dataset_entry(data, result["race_id"])
+                db.populate_dataset_entry(data, result["race_id"])
+            except Exception as e:
+                print(f"Error processing result {results_list.index(result) + 1} of {len(results_list)} results")
+                print(e)
+                continue
         return
             
     def get_competitors(self, runners):
@@ -277,7 +317,7 @@ class Results():
         data = {}
         #horse data
         form, previous_weight = self.get_form_and_weight(runner["horse_id"])
-        stored_data = db.check_horse(runner["horse_id"]) #id, name, sex, sire, dosage
+        stored_data = db.check_horse(runner["horse_id"], self.strip_id_prefix(runner["horse_id"])) #id, name, sex, sire, dosage
         horse_has_dosage = db.horse_has_dosage(runner["horse_id"])
         data['id'] = int(self.strip_id_prefix(runner["horse_id"]))
         data['nationality'] = self.COUNTRY_TOKENS[self.get_nationality(runner["horse"])] if self.COUNTRY_TOKENS[self.get_nationality(runner["horse"])] else -1
@@ -287,7 +327,7 @@ class Results():
         data['dosage'] = stored_data["dosage"] if horse_has_dosage and stored_data else self.get_dosage(runner["horse"], runner['sire'])
         data['weight'] = int(runner["weight_lbs"]) if runner["weight_lbs"] else -1
         for i in range(len(form)): 
-            data[f'form_{i}'] = int(form[i])
+            data[f'form_{i}'] = int(form[i]) if form[i] not in self.FORM_TOKENS else self.FORM_TOKENS[form[i]]
         data['weight_change'] = self.calculate_weight_change(previous_weight, data['weight'])
         data['jockey'] = int(self.strip_id_prefix(runner["jockey_id"])) 
         data['trainer'] = int(self.strip_id_prefix(runner["trainer_id"])) 
@@ -352,7 +392,6 @@ class Results():
         except Exception as e:
             last_weight = -1
         
-            
         return form, last_weight
     
     def get_position(self, horse_id, result):
@@ -360,7 +399,6 @@ class Results():
             if runner["horse_id"] == horse_id:
                 return  runner["position"] # "index": result["runners"].index(runner)
     
-        
     def calculate_weight_change(self, previous_weight, current_weight):
         return 0 if previous_weight == -1 else float(current_weight) - float(previous_weight)
     
@@ -445,23 +483,22 @@ def main():
     results = Results()
     # results.get_race_info("rac_10988926")
     limit = 10 #number of races per request
-    i = 76
-    j = 77
-    k = 78
-    l = 79
+    i = 0
+    j = 1
+    k = 2
+    l = 3
     while True: 
         res_a = results.get_results(limit=limit, skip=limit*i) #this will error out when it reaches the end of the results, works fine, but maybe can be handled better
         res_b = results.get_results(limit=limit, skip=limit*j) #this will error out when it reaches the end of the results, works fine, but maybe can be handled better
         res_c = results.get_results(limit=limit, skip=limit*k) #this will error out when it reaches the end of the results, works fine, but maybe can be handled better
         res_d = results.get_results(limit=limit, skip=limit*l) #this will error out when it reaches the end of the results, works fine, but maybe can be handled better
-        pool = Pool(os.cpu_count()-2)
+        pool = Pool(os.cpu_count())
         pool.map(results.process_results, [res_a, res_b, res_c, res_d])
         i+=4
         j+=4
         k+=4
         l+=4
 
-        
     # results.get_results()
 if __name__ == "__main__":
     main()

@@ -56,23 +56,34 @@ class DB():
             print(f'Error: {e}')
             return 1
         return 0
-    def check_horse(self, horse_id):
+    def check_horse(self, horse_id, horse_id_v2):
         doc_ref = db.collection("horses").document(horse_id)
-
+    
         doc = doc_ref.get()
+        if not doc.exists:
+            print(f"Checking {horse_id_v2}...")
+            doc_ref = db.collection("horses").document(horse_id_v2)
+            doc = doc_ref.get()
         if doc.exists:
-            print(f"Document data: {doc.to_dict()}")
+            print(f"Found horse on system: {doc.to_dict()}")
             return doc.to_dict()
         else:
-            print(f'Horse not found: {horse_id}')
+            print(f'Horse not found: {horse_id} // {horse_id_v2}')
             return False
         
     def horse_has_dosage(self, horse_id):
         doc_ref = db.collection("horses").document(horse_id)
-        
-        doc = doc_ref.get()
-        doc = doc.to_dict()
-        return doc["dosage"]["cd"] is not None
+        try:
+            doc = doc_ref.get()
+            doc = doc.to_dict()
+            if "dosage" in doc:
+                print(doc)
+                return doc["dosage"]["cd"] is not None
+            else:
+                return False
+        except TypeError as e:
+            print(e)
+            return False
         
     def check_dataset_entry(self, race_id):
         doc_ref = db.collection("dataset").document(race_id)
