@@ -140,6 +140,7 @@ class Results():
         "htb": 15,
         "e/s": 16,
         "et": 17,
+        "he": 18,
         '':-1,
     }
     
@@ -165,6 +166,7 @@ class Results():
         "RO": 107,
         "SU": 108,
         "RR": 109,
+        "DSQ": 110,
         "": -1,
     }
 
@@ -335,7 +337,7 @@ class Results():
         data['odds'] = float(runner["sp_dec"]) if runner["sp_dec"] not in [None, "", "–"] else -1
         data['rating'] = int(runner["or"]) if runner["or"] not in [None, "", "–"] else -1
         data['draw'] = int(runner["draw"]) if runner["draw"] else -1
-        if not stored_data:
+        if not stored_data or not horse_has_dosage:
             horse_data = {
                 "horse_id": self.strip_id_prefix(runner["horse_id"]),
                 "name": runner['horse'],
@@ -403,7 +405,6 @@ class Results():
         return 0 if previous_weight == -1 else float(current_weight) - float(previous_weight)
     
     def get_race_index(self, date, course_id, time):
-        print(date, course_id, time)
         params = {
             'start_date': date,
             'end_date': date,
@@ -428,8 +429,11 @@ class Results():
         return 0
     
     def get_dosage(self, horse_name, sire_name):
+        horse_name = horse_name[:horse_name.index('(')].strip() if '(' in horse_name else horse_name
+        sire_name = sire_name[:sire_name.index('(')].strip() if '(' in sire_name else sire_name
         pedigree = HorsePedigree(horse_name, sire_name)
         dosage = pedigree.dosage
+        
         return dosage
     
     
