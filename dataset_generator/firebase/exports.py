@@ -2,6 +2,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 import json
 import sys
+import os
 import pandas as pd
 from copy import deepcopy
 
@@ -47,9 +48,11 @@ Instructions for use:
     To convert a json file to csv:
         python3 exports.py convert <path_filename>
 """
+#config
+script_directory = os.path.dirname(os.path.abspath(__file__))
+json_path = os.path.join(script_directory, 'oddsgenie-firebase.json')
 
-
-cred = credentials.Certificate('oddsgenie-firebase.json')
+cred = credentials.Certificate(json_path)
 app = firebase_admin.initialize_app(cred)
 db = firestore.client()
 
@@ -83,11 +86,11 @@ def json_to_csv(path_filename):
     df.to_csv(f'{path_filename[:path_filename.index(".")]}.csv', encoding='utf-8', index=False)
 
 def main():
-    export(['dataset'], './export.json')
-    with open('./export.json', encoding='utf-8') as inputfile:
+    # export(['dataset'], './export.json')
+    with open('./reduced_export.json', encoding='utf-8') as inputfile:
         df = pd.read_json(inputfile)
     
-        pd.json_normalize(df['dataset'], meta=['header']).to_csv('./export.csv', encoding='utf-8', index=False)
+        pd.json_normalize(df["dataset"], meta=['header']).to_csv('./reduced_export.csv', encoding='utf-8', index=False)
 
     # command = sys.argv[1]
     # if command == 'export':

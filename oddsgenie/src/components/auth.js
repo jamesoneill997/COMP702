@@ -1,6 +1,7 @@
 import { auth } from '../config/firebase'
 import { createUserWithEmailAndPassword, signOut} from 'firebase/auth';
 import { useState } from 'react';
+import {DetailsForm} from './detailsForm'
 
 const Auth = () => {
     const [email, setEmail] = useState('');

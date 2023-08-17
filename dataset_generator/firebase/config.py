@@ -2,6 +2,7 @@ import os
 import requests
 import random
 import pprint
+import json
 from requests.auth import HTTPBasicAuth
 from dotenv import load_dotenv
 
@@ -14,7 +15,10 @@ from pedigree.data import HorsePedigree
 from multiprocessing import Pool
 
 #config
-cred = credentials.Certificate('oddsgenie-firebase.json')
+script_directory = os.path.dirname(os.path.abspath(__file__))
+json_path = os.path.join(script_directory, 'oddsgenie-firebase.json')
+
+cred = credentials.Certificate(json_path)
 app = firebase_admin.initialize_app(cred)
 db = firestore.client()
 
@@ -75,10 +79,16 @@ class DB():
             print(f'Horse not found: {horse_id} // {horse_id_v2}')
             return False
         
-    def horse_has_dosage(self, horse_id):
+    def horse_has_dosage(self, horse_id, horse_id_v2):
         doc_ref = db.collection("horses").document(horse_id)
         try:
             doc = doc_ref.get()
+            if not doc.exists:
+                print(f"Checking {horse_id_v2}...")
+                doc_ref = db.collection("horses").document(horse_id_v2)
+            doc = doc_ref.get()
+            if not doc.exists:
+                return False
             doc = doc.to_dict()
             if "dosage" in doc:
                 print(doc)
@@ -138,8 +148,7 @@ class DB():
         query_ref = datset_ref.where(filter=FieldFilter(f'horse_{index}.dosage.cd', "==", None))
         results = query_ref.get()
         return results
-        
-        
+
     def repopulate_missing_datset_dosage(self, dataset_doc_ref, index):
         for entry in dataset_doc_ref:
             entry_dict = entry.to_dict()
@@ -159,6 +168,42 @@ class DB():
         dataset_ref = db.collection("dataset")
         dataset = dataset_ref.get() if not limit else dataset_ref.limit_to_last(limit).get()
         return dataset
+    
+    def get_reduced_dataset(self, limit=None):
+        dataset_ref = db.collection("dataset")
+        dataset = dataset_ref.get() if not limit else dataset_ref.limit_to_last(limit).get()
+        data = []
+        for entry in dataset:
+            entry_dict = entry.to_dict()
+            if "horse_6" in entry_dict: #only get races with 6 horses
+                continue
+            tmp = {
+                "distance": entry_dict["distance"],
+                "draw": entry_dict["draw"],
+                "going": entry_dict["going"],
+                "is_flat": entry_dict["is_flat"],
+                "prize_money": entry_dict["prize_money"],
+                "race_rating": entry_dict["race_rating"],
+                "surface": entry_dict["surface"],
+                "winner": entry_dict["winner"],
+            }
+            
+            for i in range(len(entry_dict["draw"])):
+                tmp[f'horse_{i}'] = {
+                    "age": entry_dict[f'horse_{i}']["age"],
+                    "dosage": entry_dict[f'horse_{i}']["dosage"],
+                    "draw": entry_dict[f'horse_{i}']["draw"],
+                }
+                if tmp[f'horse_{i}']["draw"] == tmp["winner"]:
+                    tmp["winner"] = i
+                for j in range(4):
+                    if f'form_{j}' in entry_dict[f'horse_{i}']:
+                        tmp[f"horse_{i}_form_{j}"] = entry_dict[f'horse_{i}'][f'form_{j}']
+                    else:
+                        continue
+            data.append(tmp)
+
+        return data
 
 def fix_horses_collection():
     db = DB()
@@ -212,6 +257,9 @@ def convert_dosage_to_float():
         database.populate_dataset_entry(d, entry.id)
 def main():
     db = DB()
-    convert_dosage_to_float()
+    reduced_dataset = db.get_reduced_dataset()
+    dataset_json = json.dumps(reduced_dataset)
+    with open("reduced_export.json", "w") as f:
+        f.write(dataset_json)
 if __name__ == "__main__":
     main()

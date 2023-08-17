@@ -20,15 +20,6 @@ import pprint
 load_dotenv()
 db = DB()
 
-class Race():
-    def __init__(self):
-        self.id = None
-class Horse():
-    def __init__(self):
-        self.id = None
-class RaceCard():
-    def __init__(self):
-        self.id = None
 class Results():
     ID_TYPE_TOKENS = {
         "hrs": 1,
@@ -320,7 +311,7 @@ class Results():
         #horse data
         form, previous_weight = self.get_form_and_weight(runner["horse_id"])
         stored_data = db.check_horse(runner["horse_id"], self.strip_id_prefix(runner["horse_id"])) #id, name, sex, sire, dosage
-        horse_has_dosage = db.horse_has_dosage(runner["horse_id"])
+        horse_has_dosage = db.horse_has_dosage(runner["horse_id"], self.strip_id_prefix(runner["horse_id"]))
         data['id'] = int(self.strip_id_prefix(runner["horse_id"]))
         data['nationality'] = self.COUNTRY_TOKENS[self.get_nationality(runner["horse"])] if self.COUNTRY_TOKENS[self.get_nationality(runner["horse"])] else -1
         data['sex'] = self.SEX_TOKENS[runner["sex"]] if self.SEX_TOKENS[runner["sex"]] else -1
