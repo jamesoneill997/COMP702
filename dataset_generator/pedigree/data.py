@@ -87,8 +87,8 @@ class HorsePedigree():
         horse_data = soup.findAll('table')[4]
         di, cd = self.extract_match(str(horse_data))
         try:
-            di_cd['di'] = di
-            di_cd['cd'] = cd
+            di_cd['di'] = float(di)
+            di_cd['cd'] = float(cd)
         except Exception as e:
             print(e)
             di_cd['di'] = None

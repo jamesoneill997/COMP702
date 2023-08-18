@@ -36,3 +36,8 @@ yarn-error.log*
 
 oddsgenie-firebase.json
 *.egg-info
+
+model/runs
+*.pyc
+*.json
+*.csv
