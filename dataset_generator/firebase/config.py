@@ -26,6 +26,16 @@ db = firestore.client()
 load_dotenv()
 
 class DB():
+    def create_results_entry(self, data):
+        try:
+            race_id = data["race_id"]
+            doc_ref = db.collection("results").document(race_id)
+            doc_ref.set(data, merge=True)
+            print(f"Successfully added results entry {race_id}: {data}")
+            return True
+        except Exception as e:
+            print(f"Error adding results entry: {e}")
+            return False 
     def get_prediction_entry(self, race_id):
         try:
             doc_ref = db.collection("predictions").document(race_id)
@@ -46,14 +56,15 @@ class DB():
     def get_predictions_by_date(self, date=datetime.now().strftime("%Y-%m-%d")):
         doc_ref = db.collection("predictions")
         query_ref = doc_ref.where(filter=FieldFilter('date', "==", date))
-        predictions = query_ref.get().to_dict()
-        return predictions
+        predictions = query_ref.get()
+        
+        return {el.id: el.to_dict() for el in predictions}
     
     def get_results_by_date(self, date=datetime.now().strftime("%Y-%m-%d")):
         doc_ref = db.collection("results")
         query_ref = doc_ref.where(filter=FieldFilter('date', "==", date))
-        results = query_ref.get().to_dict()
-        return results
+        results = query_ref.get()
+        return {el.id: el.to_dict() for el in results}
     
     def populate_courses(self):
         courses_endpoint = os.environ["RACING_API_URL"] + "/courses"
@@ -288,11 +299,11 @@ class DB():
                     d[f'horse_{i}']["dosage"]["di"] = float(d[f'horse_{i}']["dosage"]["di"])
             database.populate_dataset_entry(d, entry.id)
 
-def main():
-    db = DB()
-    reduced_dataset = db.get_reduced_dataset()
-    dataset_json = json.dumps(reduced_dataset)
-    with open("reduced_export.json", "w") as f:
-        f.write(dataset_json)
-if __name__ == "__main__":
-    main()
+# def main():
+#     db = DB()
+#     reduced_dataset = db.get_reduced_dataset()
+#     dataset_json = json.dumps(reduced_dataset)
+#     with open("reduced_export.json", "w") as f:
+#         f.write(dataset_json)
+# if __name__ == "__main__":
+#     main()
