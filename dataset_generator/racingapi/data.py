@@ -1,6 +1,6 @@
 #custom imports
-from pedigree.data import HorsePedigree
-from firebase.config import DB
+from dataset_generator.pedigree.data import HorsePedigree
+from dataset_generator.firebase.config import DB
 
 #3rd party imports
 import requests

@@ -5,13 +5,14 @@ import pprint
 import json
 from requests.auth import HTTPBasicAuth
 from dotenv import load_dotenv
+from datetime import datetime
 
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import firestore
 from firebase_admin.firestore import FieldFilter
 
-from pedigree.data import HorsePedigree
+from dataset_generator.pedigree.data import HorsePedigree
 from multiprocessing import Pool
 
 #config
@@ -25,6 +26,35 @@ db = firestore.client()
 load_dotenv()
 
 class DB():
+    def get_prediction_entry(self, race_id):
+        try:
+            doc_ref = db.collection("predictions").document(race_id)
+            return doc_ref.get().to_dict()
+        except Exception:
+            return False
+
+    def create_prediction_entry(self, race_id, data):
+        try:
+            doc_ref = db.collection("predictions").document(race_id)
+            doc_ref.set(data, merge=True)
+            print(f"Successfully added prediction entry {race_id}: {data}")
+            return True
+        except Exception as e:
+            print(f"Error adding prediction entry: {e}")
+            return False
+
+    def get_predictions_by_date(self, date=datetime.now().strftime("%Y-%m-%d")):
+        doc_ref = db.collection("predictions")
+        query_ref = doc_ref.where(filter=FieldFilter('date', "==", date))
+        predictions = query_ref.get().to_dict()
+        return predictions
+    
+    def get_results_by_date(self, date=datetime.now().strftime("%Y-%m-%d")):
+        doc_ref = db.collection("results")
+        query_ref = doc_ref.where(filter=FieldFilter('date', "==", date))
+        results = query_ref.get().to_dict()
+        return results
+    
     def populate_courses(self):
         courses_endpoint = os.environ["RACING_API_URL"] + "/courses"
         params = {}
@@ -64,6 +94,7 @@ class DB():
             print(f'Error: {e}')
             return 1
         return 0
+    
     def check_horse(self, horse_id, horse_id_v2):
         doc_ref = db.collection("horses").document(horse_id)
     
@@ -109,6 +140,7 @@ class DB():
         else:
             print(f'Dataset entry not found: {race_id}')
             return False
+    
     def populate_dataset_entry(self, data, doc_id):
         print("Attempting to add dataset entry...")
         try:
@@ -205,56 +237,57 @@ class DB():
 
         return data
 
-def fix_horses_collection():
-    db = DB()
-    horses_doc_refs = db.dosage_blank_horses()
-    batch_size = 10
-    cpu_count = os.cpu_count()
-    i = 0
-    j = i+batch_size
-    k = j+batch_size
-    l = k+batch_size
-    
-    while True:
-        fix_a = horses_doc_refs[i:i+batch_size]
-        fix_b = horses_doc_refs[j:j+batch_size]
-        fix_c = horses_doc_refs[k:k+batch_size]
-        fix_d = horses_doc_refs[l:l+batch_size]
+    def fix_horses_collection(self):
+        db = DB()
+        horses_doc_refs = db.dosage_blank_horses()
+        batch_size = 10
+        cpu_count = os.cpu_count()
+        i = 0
+        j = i+batch_size
+        k = j+batch_size
+        l = k+batch_size
+        
+        while True:
+            fix_a = horses_doc_refs[i:i+batch_size]
+            fix_b = horses_doc_refs[j:j+batch_size]
+            fix_c = horses_doc_refs[k:k+batch_size]
+            fix_d = horses_doc_refs[l:l+batch_size]
 
-        pool = Pool(cpu_count)
-        pool.map(db.retry_horse_dosage, [fix_a, fix_b, fix_c, fix_d])
-        i+=batch_size*cpu_count
-        j+=batch_size*cpu_count
-        k+=batch_size*cpu_count
-        l+=batch_size*cpu_count
-        
-def rearrange_dataset_entries():
-    database = DB()
-    dataset = DB().get_dataset()
-    for entry in dataset:
-        print(f'Checking entry {dataset.index(entry)} of {len(dataset)}...')
-        d = entry.to_dict()
-        keys = [key for key in d if "horse_" in key]
-        vals = [d[key] for key in d if "horse_" in key]
-        random.shuffle(keys)
-        d_shuffled = dict(zip(keys, vals))
-        
-        for key in d_shuffled:
-            d[key] = d_shuffled[key]
-        database.populate_dataset_entry(d, entry.id)
-        
-def convert_dosage_to_float():
-    database = DB()
-    dataset = database.get_dataset()
-    for entry in dataset:
-        print(f'Checking entry {dataset.index(entry)} of {len(dataset)}...')
-        d = entry.to_dict()
-        for i in range(len(d["draw"])):
-            if d[f'horse_{i}']["dosage"]["cd"]:
-                d[f'horse_{i}']["dosage"]["cd"] = float(d[f'horse_{i}']["dosage"]["cd"])
-            if d[f'horse_{i}']["dosage"]["di"]:
-                d[f'horse_{i}']["dosage"]["di"] = float(d[f'horse_{i}']["dosage"]["di"])
-        database.populate_dataset_entry(d, entry.id)
+            pool = Pool(cpu_count)
+            pool.map(db.retry_horse_dosage, [fix_a, fix_b, fix_c, fix_d])
+            i+=batch_size*cpu_count
+            j+=batch_size*cpu_count
+            k+=batch_size*cpu_count
+            l+=batch_size*cpu_count
+            
+    def rearrange_dataset_entries(self):
+        database = DB()
+        dataset = DB().get_dataset()
+        for entry in dataset:
+            print(f'Checking entry {dataset.index(entry)} of {len(dataset)}...')
+            d = entry.to_dict()
+            keys = [key for key in d if "horse_" in key]
+            vals = [d[key] for key in d if "horse_" in key]
+            random.shuffle(keys)
+            d_shuffled = dict(zip(keys, vals))
+            
+            for key in d_shuffled:
+                d[key] = d_shuffled[key]
+            database.populate_dataset_entry(d, entry.id)
+            
+    def convert_dosage_to_float(self):
+        database = DB()
+        dataset = database.get_dataset()
+        for entry in dataset:
+            print(f'Checking entry {dataset.index(entry)} of {len(dataset)}...')
+            d = entry.to_dict()
+            for i in range(len(d["draw"])):
+                if d[f'horse_{i}']["dosage"]["cd"]:
+                    d[f'horse_{i}']["dosage"]["cd"] = float(d[f'horse_{i}']["dosage"]["cd"])
+                if d[f'horse_{i}']["dosage"]["di"]:
+                    d[f'horse_{i}']["dosage"]["di"] = float(d[f'horse_{i}']["dosage"]["di"])
+            database.populate_dataset_entry(d, entry.id)
+
 def main():
     db = DB()
     reduced_dataset = db.get_reduced_dataset()

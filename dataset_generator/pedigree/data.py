@@ -90,7 +90,6 @@ class HorsePedigree():
             di_cd['di'] = float(di)
             di_cd['cd'] = float(cd)
         except Exception as e:
-            print(e)
             di_cd['di'] = None
             di_cd['cd'] = None
             

@@ -1,7 +1,7 @@
 #custom imports
-from pedigree.data import HorsePedigree
-from firebase.config import DB
-from firebase.exports import Export
+from dataset_generator.pedigree.data import HorsePedigree
+from dataset_generator.firebase.config import DB
+from dataset_generator.firebase.exports import Export
 
 #3rd party imports
 import requests
@@ -167,7 +167,7 @@ class RaceCard():
         
     def get_racecards(self):
         url = "api.theracingapi.com/v1/racecards/pro"
-        params = {}
+        params = {"date": datetime.today().strftime('%Y-%m-%d')}
         response = requests.request(
             "GET", 
             self.endpoint, 
@@ -181,12 +181,15 @@ class RaceCard():
     #extract relevant data to comply with reduced dataset
     def format_racecards(self, result_limit=6, runner_limit=6):
         raw_cards = self.get_racecards()
-        print(len(raw_cards))
+        race_ids = []
         cards = []
         for i in range(len(raw_cards)):
             card = raw_cards[i]
             if len(card["runners"]) > 6:
                 continue
+            race_id = card['race_id']
+            race_ids.append(race_id)
+            db.create_prediction_entry(race_id, card)
             formatted_card = {
                 "distance": self.convert_distance_to_yards(card["distance"]),
                 "going": self.GOING_TOKENS[card["going"].lower()],
@@ -207,19 +210,19 @@ class RaceCard():
                         "di": None,
                         "cd": None,
                     }]
-                print(j)
+                print(f'Horse {j} - {runner["horse"]} - {runner["horse_id"]} - {runner["sire"]}')
                 formatted_card[f'horse_{j}'] = {
                     "age": int(runner["age"]),
                     "dosage.di": float(dosage[0]["di"]) if dosage[0]["di"] else 0,
                     "dosage.cd": float(dosage[0]["cd"]) if dosage[0]["cd"] else 0,
                     "draw": int(runner["draw"]),
                 }
-                form = self.parse_form(runner["form"]) #list up to length 3, the form limit
+                form = self.parse_form(runner["form"]) #list up to length 4, the form limit
                 for k in range(len(form)):
-                    formatted_card[f'horse_{j}_form_{k}'] = form[k]
+                    formatted_card[f'horse_{j}_form_{k}'] = self.FORM_TOKENS[form[k]] if form[k] in self.FORM_TOKENS else form[k]
 
             cards.append(formatted_card)
-        return cards
+        return race_ids, cards
     def parse_form(self, s):
         s = s.replace(' ', '').replace('F', '101').replace('P', '100').replace('U', '102').replace('R', '104').replace('B', '105').replace('C', '106').replace('O', '107').replace('S', '108').replace('D', '109').replace('Q', '110').replace('-', '-1')
         return list(s[-4:]) if len(s) >= 4 else list(s)
@@ -231,8 +234,11 @@ class RaceCard():
             return rest
 
     def parse_class(self, s):
-        numeric_part = re.search(r'\d+', s).group()
-        return int(numeric_part)
+        try:
+            numeric_part = re.search(r'\d+', s).group()
+            return int(numeric_part)
+        except AttributeError:
+            return -1
     #takes mfy and returns y
     def convert_distance_to_yards(self, s):
         miles = re.search(r'(\d+)m', s)

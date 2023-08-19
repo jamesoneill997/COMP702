@@ -1,5 +1,7 @@
 import torch
 from torch import nn
+import torch.nn.functional as TF
+
 
 class NeuralNet(nn.Module):
     def __init__(self):
