@@ -13,7 +13,7 @@ def initialize_app():
     return
 
 num_hours = 12
-interval_seconds = 60*60*num_hours
+interval_seconds = 90#60*60*num_hours
 # Create an instance of scheduler and add function.
 scheduler = BlockingScheduler()
 scheduler.add_job(initialize_app, "interval", seconds=interval_seconds, misfire_grace_time=None)

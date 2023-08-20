@@ -1,1 +1,1 @@
-web: gunicorn handler:app
+web: python3 application/scheduler.py
