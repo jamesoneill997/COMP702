@@ -36,7 +36,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-oddsgenie-firebase.json
 *.egg-info
 
 model/runs
@@ -45,3 +44,4 @@ model/runs
 *.csv
 
 env
+oddsgenie
