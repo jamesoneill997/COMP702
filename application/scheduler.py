@@ -1,9 +1,9 @@
 # Package Scheduler.
 from apscheduler.schedulers.blocking import BlockingScheduler
-from application import app
+from app import App
 
 print("Initializing app...")
-predictions = app.App()
+predictions = App()
 print("App initialized.")
 # print("Setting predictions...")
 # predictions.set_predictions()
