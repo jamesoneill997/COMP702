@@ -10,7 +10,6 @@ class ResultsHandler(Resource):
         try:
             http_code = 200
             response = data.Data().get_results()
-            return make_response(jsonify(response), http_code)
         except Exception as e:
             print(e)
             http_code = 500
@@ -19,14 +18,13 @@ class ResultsHandler(Resource):
                 "status": "error",
                 "error": "Something went wrong", 
             }
-            return make_response(jsonify(response), http_code)
+        return make_response(jsonify(response), http_code)
         
 class RaceCardsHandler(Resource):
     def get(self):
         try:
             http_code = 200
             response = data.Data().get_racecards()
-            return make_response(jsonify(response), http_code)
         except Exception as e:
             print(e)
             http_code = 500
@@ -35,7 +33,7 @@ class RaceCardsHandler(Resource):
                 "status": "error",
                 "error": "Something went wrong", 
             }
-            return make_response(jsonify(response), http_code)
+        return make_response(jsonify(response), http_code)
     
 api.add_resource(ResultsHandler, '/api/v1/results')
 api.add_resource(RaceCardsHandler, '/api/v1/racecards')
