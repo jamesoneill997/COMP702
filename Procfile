@@ -1,1 +1,0 @@
-clock: python3 application/scheduler.py
