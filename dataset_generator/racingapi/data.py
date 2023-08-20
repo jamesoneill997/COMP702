@@ -173,7 +173,7 @@ class Results():
         if not num_days == 365:
             d = datetime.today() - timedelta(days=num_days)
             params["start_date"] = d.strftime('%Y-%m-%d')
-            params["end_data"] = datetime.today().strftime('%Y-%m-%d')
+            params["end_date"] = datetime.today().strftime('%Y-%m-%d')
         response = requests.request(
             "GET", 
             self.endpoint, 
@@ -182,6 +182,7 @@ class Results():
                 os.getenv('RACING_API_PASSWORD')), 
             params=params,
         )
+
         results_list = response.json()["results"]
         return results_list
 

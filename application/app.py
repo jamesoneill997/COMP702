@@ -50,12 +50,10 @@ class App():
     
     def set_results(self):
         results = data.Results()
-        try:    
-            results_list = results.get_results(num_days = 2)
-            results.process_results(results_list)
-            return True
-        except Exception as e:
-            return False
+        results_list = results.get_results(num_days = 2)
+        print(results_list)
+        results.process_results(results_list)
+        return True
 # def main():
 #     app = App()
 #     app.set_results()
