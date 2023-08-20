@@ -475,26 +475,26 @@ class Results():
         else:
             return None
 
-# def main():
-#     results = Results()
-#     # results.get_race_info("rac_10988926")
-#     limit = 10 #number of races per request
-#     i = 0
-#     j = 1
-#     k = 2
-#     l = 3
-#     while True: 
-#         res_a = results.get_results(limit=limit, skip=limit*i) #this will error out when it reaches the end of the results, works fine, but maybe can be handled better
-#         res_b = results.get_results(limit=limit, skip=limit*j) #this will error out when it reaches the end of the results, works fine, but maybe can be handled better
-#         res_c = results.get_results(limit=limit, skip=limit*k) #this will error out when it reaches the end of the results, works fine, but maybe can be handled better
-#         res_d = results.get_results(limit=limit, skip=limit*l) #this will error out when it reaches the end of the results, works fine, but maybe can be handled better
-#         pool = Pool(os.cpu_count())
-#         pool.map(results.process_results, [res_a, res_b, res_c, res_d])
-#         i+=4
-#         j+=4
-#         k+=4
-#         l+=4
+def main():
+    results = Results()
+    # results.get_race_info("rac_10988926")
+    limit = 10 #number of races per request
+    i = 0
+    j = 1
+    k = 2
+    l = 3
+    while True: 
+        res_a = results.get_results(limit=limit, skip=limit*i) #this will error out when it reaches the end of the results, works fine, but maybe can be handled better
+        res_b = results.get_results(limit=limit, skip=limit*j) #this will error out when it reaches the end of the results, works fine, but maybe can be handled better
+        res_c = results.get_results(limit=limit, skip=limit*k) #this will error out when it reaches the end of the results, works fine, but maybe can be handled better
+        res_d = results.get_results(limit=limit, skip=limit*l) #this will error out when it reaches the end of the results, works fine, but maybe can be handled better
+        pool = Pool(os.cpu_count())
+        pool.map(results.process_results, [res_a, res_b, res_c, res_d])
+        i+=4
+        j+=4
+        k+=4
+        l+=4
 
-#     # results.get_results()
-# if __name__ == "__main__":
-#     main()
+    # results.get_results()
+if __name__ == "__main__":
+    main()

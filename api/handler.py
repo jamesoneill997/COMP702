@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify, make_response
 from flask_restful import Resource, Api
-from api import data
+from data import Data
 
 app = Flask("oddsgenie-api")
 api = Api(app)
@@ -9,7 +9,7 @@ class ResultsHandler(Resource):
     def get(self):
         try:
             http_code = 200
-            response = data.Data().get_results()
+            response = Data().get_results()
         except Exception as e:
             print(e)
             http_code = 500
@@ -24,7 +24,7 @@ class RaceCardsHandler(Resource):
     def get(self):
         try:
             http_code = 200
-            response = data.Data().get_racecards()
+            response = Data().get_racecards()
         except Exception as e:
             print(e)
             http_code = 500
