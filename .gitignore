@@ -43,3 +43,5 @@ model/runs
 *.pyc
 *.json
 *.csv
+
+env
