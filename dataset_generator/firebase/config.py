@@ -16,10 +16,11 @@ from dataset_generator.pedigree.data import HorsePedigree
 from multiprocessing import Pool
 
 #config
+
 script_directory = os.path.dirname(os.path.abspath(__file__))
 json_path = os.path.join(script_directory, 'oddsgenie-firebase.json')
 
-cred = credentials.Certificate(json_path)
+cred = credentials.Certificate('/dataset_generator/firebase/oddsgenie-firebase.json')
 app = firebase_admin.initialize_app(cred)
 db = firestore.client()
 

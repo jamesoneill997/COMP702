@@ -1,1 +1,1 @@
-clock: python3 application/scheduler.py
+worker: python3 application/scheduler.py

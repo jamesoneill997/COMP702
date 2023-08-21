@@ -41,7 +41,7 @@ oddsgenie-firebase.json
 
 model/runs
 *.pyc
-*.json
+*export.json
 *.csv
 
 env
