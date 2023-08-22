@@ -8,4 +8,4 @@ ENV RACING_API_USERNAME=UR5ogzdYDpq76iOMrKCIQfub
 ENV RACING_API_PASSWORD=T5UBuBi5RrYTVJYDqrewft2m
 ENV RACING_API_URL=https://api.theracingapi.com/v1
 ENV FIREBASE_SECRET=AIzaSyBOiof9vGhH3Pt7aTcSEgy766gc5glqcb8
-CMD ["python3", "application/scheduler.py"]
+CMD ["flask", "--app", "server", "run", "--host", "0.0.0.0", "--port", "8080"]

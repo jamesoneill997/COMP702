@@ -40,7 +40,7 @@ class App():
             df = pd.read_csv(data)
             tensor = torch.tensor(df.values, dtype=torch.float32)
             prediction_values = self.model(tensor).tolist()[0]
-            
+            print("Prediction values: ", prediction_values)
             predictions[self.race_ids[csv_racecard[0]]] = {f'horse_{i}':prediction_values[i] for i in range(len(prediction_values))}
 
         for prediction in predictions.keys():
