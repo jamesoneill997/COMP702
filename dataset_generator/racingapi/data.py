@@ -193,9 +193,9 @@ class Results():
         print(f'Processing {len(results_list)} entries...')
         for result in results_list:
             try:
-                if not self.validate_label(result):
-                    print("No valid label found for this race - skipping")
-                    continue
+                # if not self.validate_label(result):
+                #     print("No valid label found for this race - skipping")
+                #     continue
                 if db.check_dataset_entry(result["race_id"]): #skip races we've already processed
                     print(f"Skipping race {result['race_id']} - entry already exists")
                     continue
@@ -214,8 +214,8 @@ class Results():
                 data['distance'] = int(result["dist_y"]) 
                 data['local_time'] = int(self.convert_to_military_time(result["off"]))
                 data['race_rating'] = self.GRADE_TOKENS[result["pattern"].lower()] if self.GRADE_TOKENS[result["pattern"].lower()] else -1
-                data['winner'] = int(result["runners"][0]["draw"] )#this is the label, super important!
-                
+                data['winner'] = int(result["runners"][0]["draw"])#this is the label, super important!
+
                 #race data that needs to be formatted or calculated
                 data['prize_money'] = self.format_prize_money(result["runners"][0]["prize"])
                 data['race_index'] = self.get_race_index(result['date'], result['course_id'], result['off'])
@@ -260,7 +260,13 @@ class Results():
         return result
 
     def get_draw(self, runners):
-        return [runner["draw"] for runner in runners]
+        draw_list = []
+        for runner in runners:
+            if "draw" in runner and runner["draw"] not in [None, ""]:
+                draw_list.append(runner["draw"])
+            else:
+                draw_list.append(-1)
+        return draw_list
     
     def validate_label(self, data):
         return data["runners"][0]["draw"] not in [None, ""]

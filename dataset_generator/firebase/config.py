@@ -5,7 +5,7 @@ import pprint
 import json
 from requests.auth import HTTPBasicAuth
 from dotenv import load_dotenv
-from datetime import datetime
+from datetime import (datetime, timedelta)
 
 import firebase_admin
 from firebase_admin import credentials
@@ -55,18 +55,48 @@ class DB():
             return False
 
     def get_predictions_by_date(self, date=datetime.now().strftime("%Y-%m-%d")):
+        predictions_data = []
         doc_ref = db.collection("predictions")
-        query_ref = doc_ref.where(filter=FieldFilter('date', "==", date))
+        query_ref = doc_ref.where(filter=FieldFilter('date', ">=", date))
         predictions = query_ref.get()
-        
-        return {el.id: el.to_dict() for el in predictions}
+        predictions_dicts = {el.id: el.to_dict() for el in predictions}
+        for prediction in predictions_dicts:
+            winner = None
+            runner_probabilities = []
+            tot_runners = len(predictions_dicts[prediction]["runners"])
+            for i in range(tot_runners):
+                runner_probabilities.append(predictions_dicts[prediction][f'horse_{i}'])
+            winner_index = runner_probabilities.index(max(runner_probabilities))
+            winner = predictions_dicts[prediction]["runners"][winner_index]
+            relevant_data = {
+                "time": predictions_dicts[prediction]["off_time"] if "off_time" in predictions_dicts[prediction] else "TBD",
+                "course": predictions_dicts[prediction]["course"],
+                "runners": tot_runners,
+                "prediction": prediction["predicted_winner"] if "predicted_winner" in predictions_dicts[prediction] else "Unavailable",
+                "confidence": str(predictions_dicts[prediction][f"horse_{winner_index}"]*100//1) + '%' if f"horse_{winner_index}" in predictions_dicts[prediction] else "Unavailable",
+            }
+            predictions_data.append(relevant_data)
+            doc_ref.set({"predicted_winner": winner["horse"]}, merge=True)
+        return predictions_data    
     
-    def get_results_by_date(self, date=datetime.now().strftime("%Y-%m-%d")):
+    def get_results_by_date(self, date = (datetime.now()-timedelta(days=1)).strftime("%Y-%m-%d")):
+        results_data = []
         doc_ref = db.collection("results")
         query_ref = doc_ref.where(filter=FieldFilter('date', "==", date))
         results = query_ref.get()
-        return {el.id: el.to_dict() for el in results}
-    
+        results_dicts = {el.id: el.to_dict() for el in results}
+        for result in results_dicts:
+            relevant_data = {
+                "time": results_dicts[result]["off"] if "off" in results_dicts[result] else "TBD",
+                "course": results_dicts[result]["course"],
+                "runners": len(results_dicts[result]["runners"]),
+                "prediction": self.get_prediction_entry(result)["predicted_winner"] if self.get_prediction_entry(result) else "Unavailable",
+                "result": results_dicts[result]["runners"][0]["horse"],
+            }
+
+            results_data.append(relevant_data)
+            
+        return results_data
     def populate_courses(self):
         courses_endpoint = os.environ["RACING_API_URL"] + "/courses"
         params = {}

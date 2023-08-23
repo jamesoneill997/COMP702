@@ -170,16 +170,23 @@ class RaceCard():
         
     def get_racecards(self):
         url = "api.theracingapi.com/v1/racecards/pro"
-        params = {"date": datetime.today().strftime('%Y-%m-%d')}
-        response = requests.request(
-            "GET", 
-            self.endpoint, 
-            auth=HTTPBasicAuth(
-                os.getenv('RACING_API_USERNAME'),
-                os.getenv('RACING_API_PASSWORD')), 
-            params=params,
-        )
-        return response.json()["racecards"]
+        todays_date = datetime.today().strftime('%Y-%m-%d')
+        merged_results = []
+        for date in range(3):
+            day = (datetime.today() - timedelta(days=date)).strftime('%Y-%m-%d') if date == 0 else (datetime.today() + timedelta(days=date)).strftime('%Y-%m-%d')
+            params = {
+                'date': day,
+            }
+            response = requests.request(
+                "GET", 
+                self.endpoint, 
+                auth=HTTPBasicAuth(
+                    os.getenv('RACING_API_USERNAME'),
+                    os.getenv('RACING_API_PASSWORD')), 
+                params=params,
+            )
+            merged_results += response.json()["racecards"]
+        return merged_results
     
     #extract relevant data to comply with reduced dataset
     def format_racecards(self, result_limit=6, runner_limit=6):
@@ -188,7 +195,7 @@ class RaceCard():
         cards = []
         for i in range(len(raw_cards)):
             card = raw_cards[i]
-            if len(card["runners"]) > 6:
+            if len(card["runners"]) > runner_limit:
                 continue
             race_id = card['race_id']
             race_ids.append(race_id)
@@ -200,6 +207,7 @@ class RaceCard():
                 "prize_money": self.parse_prize_money(card["prize"]),
                 "race_rating": self.parse_class(card["race_class"]),
                 "surface": self.SURFACE_TOKENS[card["surface"].lower()],
+                "tot_runners": len(card["runners"]),
             }
             
             for j in range(len(card["runners"])):
@@ -218,7 +226,7 @@ class RaceCard():
                     "age": int(runner["age"]),
                     "dosage.di": float(dosage[0]["di"]) if dosage[0]["di"] else 0,
                     "dosage.cd": float(dosage[0]["cd"]) if dosage[0]["cd"] else 0,
-                    "draw": int(runner["draw"]),
+                    "draw": int(runner["draw"]) if "draw" in runner and runner["draw"] not in ['', None] else -1,
                 }
                 form = self.parse_form(runner["form"]) #list up to length 4, the form limit
                 for k in range(len(form)):

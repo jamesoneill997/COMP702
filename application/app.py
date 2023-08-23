@@ -32,8 +32,9 @@ class App():
     def set_predictions(self):
         print("Setting predictions...")
         predictions = {}
-        racecards = self.racecards
-        csv_racecard_entries = [self.rc_manager.dict_to_ordered_csv(racecards[1][i]) for i in range(len(racecards[1]))]
+        racecards = self.racecards[1]
+        csv_racecard_entries = [self.rc_manager.dict_to_ordered_csv(racecards[i]) for i in range(len(racecards))]
+
         print(f'Found {len(csv_racecard_entries)} racecards to process.')
         for csv_racecard in enumerate(csv_racecard_entries):
             data = StringIO(csv_racecard[1])
@@ -41,22 +42,22 @@ class App():
             tensor = torch.tensor(df.values, dtype=torch.float32)
             prediction_values = self.model(tensor).tolist()[0]
             print("Prediction values: ", prediction_values)
-            predictions[self.race_ids[csv_racecard[0]]] = {f'horse_{i}':prediction_values[i] for i in range(len(prediction_values))}
+            predictions[self.race_ids[csv_racecard[0]]] = {f'horse_{i}':prediction_values[i] for i in range(len(prediction_values))}            
 
-        for prediction in predictions.keys():
-            self.db.create_prediction_entry(prediction, predictions[prediction])      
+        for prediction in predictions:
+            predictions[prediction]["winner_index"] = int(max(predictions[prediction], key=predictions[prediction].get)[-1])
+            self.db.create_prediction_entry(prediction, predictions[prediction])
 
         return predictions
     
     def set_results(self):
         results = data.Results()
         results_list = results.get_results(num_days = 2)
-        print(results_list)
         results.process_results(results_list)
         return True
-# def main():
-#     app = App()
-#     app.set_results()
+def main():
+    app = App()
+    app.set_predictions()
 
-# if __name__ == "__main__":
-#     main()
+if __name__ == "__main__":
+    main()
