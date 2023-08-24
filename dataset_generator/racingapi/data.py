@@ -193,28 +193,29 @@ class Results():
         print(f'Processing {len(results_list)} entries...')
         for result in results_list:
             try:
+                #temporarily removing tests
                 # if not self.validate_label(result):
                 #     print("No valid label found for this race - skipping")
                 #     continue
-                if db.check_dataset_entry(result["race_id"]): #skip races we've already processed
-                    print(f"Skipping race {result['race_id']} - entry already exists")
-                    continue
+                # if db.check_dataset_entry(result["race_id"]): #skip races we've already processed
+                #     print(f"Skipping race {result['race_id']} - entry already exists")
+                #     continue
                 print(f"Parsing result {results_list.index(result) + 1} of {len(results_list)} results")
                 data = {}
                 surface = self.get_surface(result)
                 draw = self.get_draw(result["runners"])
                 db.create_results_entry(result)
                 #race data
-                data['id'] = int(self.strip_id_prefix(result["race_id"]))
+                data['id'] = int(self.strip_id_prefix(result["race_id"])) if 'race_id' in result else 0
                 data['date'] = self.unix_time(result["date"])
                 data['going'] = self.GOING_TOKENS[result["going"].lower()] if self.GOING_TOKENS[result["going"].lower()] else -1
-                data['racecourse_id'] = int(self.strip_id_prefix(result["course_id"]))
+                data['racecourse_id'] = int(self.strip_id_prefix(result["course_id"])) if "course_id" in result else 0
                 data['country'] = self.COUNTRY_TOKENS[result["region"]] if self.COUNTRY_TOKENS[result["region"]] else -1
-                data['is_flat']= int(result["type"] == "Flat")
-                data['distance'] = int(result["dist_y"]) 
-                data['local_time'] = int(self.convert_to_military_time(result["off"]))
+                data['is_flat']= int(result["type"] == "Flat") if "type" in result else -1
+                data['distance'] = int(result["dist_y"])  if "dist_y" in result else -1
+                data['local_time'] = int(self.convert_to_military_time(result["off"])) if "off" in result else 0
                 data['race_rating'] = self.GRADE_TOKENS[result["pattern"].lower()] if self.GRADE_TOKENS[result["pattern"].lower()] else -1
-                data['winner'] = int(result["runners"][0]["draw"])#this is the label, super important!
+                data['winner'] = int(result["runners"][0]["draw"]) if "draw" in result["runners"][0] and result["runners"][0]["draw"] != '' else -1#this is the label, super important!
 
                 #race data that needs to be formatted or calculated
                 data['prize_money'] = self.format_prize_money(result["runners"][0]["prize"])
@@ -222,7 +223,7 @@ class Results():
                 data['local_weather'] = self.get_weather(result["course"], result['date'], result['off'])
                 data['draw'] = {}
                 for i in range(len(draw)):
-                    data['draw'][str(i)] = int(draw[i])
+                    data['draw'][str(i)] = int(draw[i]) if 'draw' in data and draw[i] != '' else -1
                 data['surface'] = self.SURFACE_TOKENS[surface] if self.SURFACE_TOKENS[surface] else -1
                 for runner in result["runners"]:
                     data[f'horse_{result["runners"].index(runner)}'] = self.get_horse_data(runner)
@@ -301,6 +302,7 @@ class Results():
             data_dict = data.iloc[0].to_dict()
         
         except Exception as e:
+            print("Error getting weather")
             print(e)
             data_dict = -1
         return data_dict
@@ -313,6 +315,7 @@ class Results():
             lat = response[0]["lat"]
             lon = response[0]["lon"]
         except IndexError as e:
+            print("Error getting location")
             print(e)
             return [0,0]
         return [float(lat), float(lon)]

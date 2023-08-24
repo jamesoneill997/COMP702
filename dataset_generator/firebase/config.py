@@ -19,7 +19,7 @@ from multiprocessing import Pool
 
 script_directory = os.path.dirname(os.path.abspath(__file__))
 json_path = os.path.join(script_directory, 'oddsgenie-firebase.json')
-
+#'/dataset_generator/firebase/oddsgenie-firebase.json'
 cred = credentials.Certificate(json_path)
 app = firebase_admin.initialize_app(cred)
 db = firestore.client()
@@ -32,7 +32,7 @@ class DB():
             race_id = data["race_id"]
             doc_ref = db.collection("results").document(race_id)
             doc_ref.set(data, merge=True)
-            print(f"Successfully added results entry {race_id}: {data}")
+            print(f"Successfully added results entry {race_id}")
             return True
         except Exception as e:
             print(f"Error adding results entry: {e}")
@@ -48,7 +48,7 @@ class DB():
         try:
             doc_ref = db.collection("predictions").document(race_id)
             doc_ref.set(data, merge=True)
-            print(f"Successfully added prediction entry {race_id}: {data}")
+            print(f"Successfully added prediction entry {race_id}")
             return True
         except Exception as e:
             print(f"Error adding prediction entry: {e}")
@@ -57,7 +57,7 @@ class DB():
     def get_predictions_by_date(self, date=datetime.now().strftime("%Y-%m-%d")):
         predictions_data = []
         doc_ref = db.collection("predictions")
-        query_ref = doc_ref.where(filter=FieldFilter('date', ">=", date))
+        query_ref = doc_ref.where(filter=FieldFilter('date', "==", date)).order_by("date").order_by("off_time")
         predictions = query_ref.get()
         predictions_dicts = {el.id: el.to_dict() for el in predictions}
         for prediction in predictions_dicts:
@@ -69,28 +69,40 @@ class DB():
             winner_index = runner_probabilities.index(max(runner_probabilities))
             winner = predictions_dicts[prediction]["runners"][winner_index]
             relevant_data = {
+                "date": predictions_dicts[prediction]["date"] if "date" in predictions_dicts[prediction] else "TBD",
                 "time": predictions_dicts[prediction]["off_time"] if "off_time" in predictions_dicts[prediction] else "TBD",
                 "course": predictions_dicts[prediction]["course"],
                 "runners": tot_runners,
-                "prediction": prediction["predicted_winner"] if "predicted_winner" in predictions_dicts[prediction] else "Unavailable",
+                "prediction": predictions_dicts[prediction]["predicted_winner"] if "predicted_winner" in predictions_dicts[prediction] else "Unavailable",
                 "confidence": str(predictions_dicts[prediction][f"horse_{winner_index}"]*100//1) + '%' if f"horse_{winner_index}" in predictions_dicts[prediction] else "Unavailable",
             }
             predictions_data.append(relevant_data)
-            doc_ref.set({"predicted_winner": winner["horse"]}, merge=True)
-        return predictions_data    
+            doc_ref.document(prediction).set({"predicted_winner": winner["horse"]}, merge=True)
+        return predictions_data
     
     def get_results_by_date(self, date = (datetime.now()-timedelta(days=1)).strftime("%Y-%m-%d")):
         results_data = []
         doc_ref = db.collection("results")
-        query_ref = doc_ref.where(filter=FieldFilter('date', "==", date))
+        query_ref = doc_ref.where(filter=FieldFilter('date', "==", date)).order_by("off")
         results = query_ref.get()
         results_dicts = {el.id: el.to_dict() for el in results}
         for result in results_dicts:
+            if len(results_dicts[result]["runners"]) > 6:
+                continue
+            try:
+                prediction_entry = self.get_prediction_entry(result)
+                winner_index = prediction_entry["winner_index"] if "winner_index" in prediction_entry else None
+                winner = results_dicts[result]["runners"][winner_index] if winner_index else "Unavailable"
+            except Exception as e:
+                print("Error getting prediction entry")
+                print(e)
+                winner = None
             relevant_data = {
+                "date": results_dicts[result]["date"] if "date" in results_dicts[result] else "TBD",
                 "time": results_dicts[result]["off"] if "off" in results_dicts[result] else "TBD",
                 "course": results_dicts[result]["course"],
                 "runners": len(results_dicts[result]["runners"]),
-                "prediction": self.get_prediction_entry(result)["predicted_winner"] if self.get_prediction_entry(result) else "Unavailable",
+                "prediction": "Unavailable" if winner == None else winner["horse"] if "horse" in winner else "Unavailable",
                 "result": results_dicts[result]["runners"][0]["horse"],
             }
 
@@ -141,16 +153,24 @@ class DB():
         doc_ref = db.collection("horses").document(horse_id)
     
         doc = doc_ref.get()
+        if doc.exists:
+            doc = doc.to_dict()
+            doc["horse_id"] = horse_id_v2
+            try:
+                doc_ref.set(doc, merge=True) #This will migrate the horse_id to the new format as the system runs
+                print("Migrated horse_id to v2 format")
+            except Exception as e:
+                print(f'Error migrating horse_id to v2 format: {e}')
+            print(f"Found horse on system: {doc['name']}")
+            return doc
+        
         if not doc.exists:
             print(f"Checking {horse_id_v2}...")
             doc_ref = db.collection("horses").document(horse_id_v2)
             doc = doc_ref.get()
-        if doc.exists:
-            print(f"Found horse on system: {doc.to_dict()}")
-            return doc.to_dict()
-        else:
-            print(f'Horse not found: {horse_id} // {horse_id_v2}')
-            return False
+            return doc.to_dict() if doc.exists else False
+        print(f'Horse not found: {horse_id} // {horse_id_v2}')
+        return False
         
     def horse_has_dosage(self, horse_id, horse_id_v2):
         doc_ref = db.collection("horses").document(horse_id)
@@ -164,12 +184,11 @@ class DB():
                 return False
             doc = doc.to_dict()
             if "dosage" in doc:
-                print(doc)
-                return doc["dosage"]["cd"] is not None
+                return doc["dosage"]["cd"] != None
             else:
                 return False
         except TypeError as e:
-            print(e)
+            print(f'Error checking dosage: {e}')
             return False
         
     def check_dataset_entry(self, race_id):
