@@ -19,7 +19,6 @@ from multiprocessing import Pool
 
 script_directory = os.path.dirname(os.path.abspath(__file__))
 json_path = os.path.join(script_directory, 'oddsgenie-firebase.json')
-#'/dataset_generator/firebase/oddsgenie-firebase.json'
 cred = credentials.Certificate(json_path)
 app = firebase_admin.initialize_app(cred)
 db = firestore.client()
@@ -57,7 +56,7 @@ class DB():
     def get_predictions_by_date(self, date=datetime.now().strftime("%Y-%m-%d")):
         predictions_data = []
         doc_ref = db.collection("predictions")
-        query_ref = doc_ref.where(filter=FieldFilter('date', "==", date)).order_by("date").order_by("off_time")
+        query_ref = doc_ref.where(filter=FieldFilter('date', ">=", date)).order_by("date").order_by("off_time")
         predictions = query_ref.get()
         predictions_dicts = {el.id: el.to_dict() for el in predictions}
         for prediction in predictions_dicts:
@@ -78,6 +77,7 @@ class DB():
             }
             predictions_data.append(relevant_data)
             doc_ref.document(prediction).set({"predicted_winner": winner["horse"]}, merge=True)
+            db.collection("results").document(prediction).set({"predicted_winner": winner["horse"]}, merge=True)
         return predictions_data
     
     def get_results_by_date(self, date = (datetime.now()-timedelta(days=1)).strftime("%Y-%m-%d")):
@@ -91,24 +91,24 @@ class DB():
                 continue
             try:
                 prediction_entry = self.get_prediction_entry(result)
-                winner_index = prediction_entry["winner_index"] if "winner_index" in prediction_entry else None
-                winner = results_dicts[result]["runners"][winner_index] if winner_index else "Unavailable"
+                # winner_index = prediction_entry["winner_index"] if "winner_index" in prediction_entry else None
+                predicted_winner = prediction_entry["predicted_winner"] if prediction_entry else "Unavailable"
             except Exception as e:
-                print("Error getting prediction entry")
                 print(e)
-                winner = None
+                predicted_winner = "Unavailable"
             relevant_data = {
                 "date": results_dicts[result]["date"] if "date" in results_dicts[result] else "TBD",
                 "time": results_dicts[result]["off"] if "off" in results_dicts[result] else "TBD",
                 "course": results_dicts[result]["course"],
                 "runners": len(results_dicts[result]["runners"]),
-                "prediction": "Unavailable" if winner == None else winner["horse"] if "horse" in winner else "Unavailable",
+                "prediction": predicted_winner,
                 "result": results_dicts[result]["runners"][0]["horse"],
             }
 
             results_data.append(relevant_data)
             
-        return results_data
+        return results_data    
+    
     def populate_courses(self):
         courses_endpoint = os.environ["RACING_API_URL"] + "/courses"
         params = {}

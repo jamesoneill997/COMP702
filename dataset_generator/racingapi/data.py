@@ -197,9 +197,9 @@ class Results():
                 # if not self.validate_label(result):
                 #     print("No valid label found for this race - skipping")
                 #     continue
-                # if db.check_dataset_entry(result["race_id"]): #skip races we've already processed
-                #     print(f"Skipping race {result['race_id']} - entry already exists")
-                #     continue
+                if db.check_dataset_entry(result["race_id"]): #skip races we've already processed
+                    print(f"Skipping race {result['race_id']} - entry already exists")
+                    continue
                 print(f"Parsing result {results_list.index(result) + 1} of {len(results_list)} results")
                 data = {}
                 surface = self.get_surface(result)
