@@ -153,6 +153,7 @@ class RaceCard():
         "UR": 102,
         "NR": 103,
         "R": 104,
+        "REF": 104,
         "BD": 105,
         "CO": 106,
         "RO": 107,
@@ -163,6 +164,7 @@ class RaceCard():
         "-": 111,
         "/": 112,
         "V": 113,
+        ""
         "": -1,
     }
 
@@ -209,10 +211,10 @@ class RaceCard():
                 "prize_money": self.parse_prize_money(card["prize"]),
                 "race_rating": self.parse_class(card["race_class"]),
                 "surface": self.SURFACE_TOKENS[card["surface"].lower()],
-                "tot_runners": len(card["runners"]),
             }
             
             for j in range(len(card["runners"])):
+                formatted_card["draw.{}".format(j)] = int(card["runners"][j]["draw"]) if "draw" in card["runners"][j] and card["runners"][j]["draw"] not in ['', None] else -1
                 runner = card["runners"][j]
                 stored_data = db.check_horse(runner["horse_id"], self.strip_id_prefix(runner["horse_id"])) #id, name, sex, sire, dosage
                 horse_has_dosage = db.horse_has_dosage(runner["horse_id"], self.strip_id_prefix(runner["horse_id"]))
@@ -224,11 +226,19 @@ class RaceCard():
                         "cd": None,
                     }]
                 print(f'Horse {j} - {runner["horse"]} - {runner["horse_id"]} - {runner["sire"]}')
+                try:
+                    odds = runner["odds"][0]["decimal"] if "odds" in runner and runner["odds"] not in ['', None] else -1
+                except IndexError as e:
+                    odds = -1
+                    print(f'No odds found for horse {runner["horse"]}')
                 formatted_card[f'horse_{j}'] = {
                     "age": int(runner["age"]),
                     "dosage.di": float(dosage[0]["di"]) if dosage[0]["di"] else 0,
                     "dosage.cd": float(dosage[0]["cd"]) if dosage[0]["cd"] else 0,
                     "draw": int(runner["draw"]) if "draw" in runner and runner["draw"] not in ['', None] else -1,
+                    "odds": float(odds),
+                    "rating": int(runner["rpr"]) if "rpr" in runner and runner["rpr"] not in ['', None] else -1,
+                    "weight": int(runner["lbs"]) if "lbs" in runner and runner["lbs"] not in ['', None] else -1,
                 }
                 form = self.parse_form(runner["form"]) #list up to length 4, the form limit
                 for k in range(len(form)):
@@ -273,12 +283,7 @@ class RaceCard():
     #TODO: refactor once dataset has improved
     def dict_to_ordered_csv(self, dict):
         complete_cols = [
-            'distance',	'going','is_flat','prize_money',	'race_rating',	'surface',	'horse_0_form_0',	'horse_0_form_1',	'horse_0_form_2',	'horse_0_form_3',	'horse_1_form_0',	'horse_1_form_1',	
-            'horse_1_form_2',	'horse_1_form_3',	'horse_2_form_0',	'horse_2_form_1',	'horse_2_form_2',	'horse_2_form_3',	'horse_3_form_0',	'horse_3_form_1',	'horse_3_form_2',	'horse_3_form_3',	
-            'horse_0.age',	'horse_0.dosage.cd',	'horse_0.dosage.di',	'horse_0.draw',	'horse_1.age',	'horse_1.dosage.cd',	'horse_1.dosage.di',	'horse_1.draw',	'horse_2.age',	'horse_2.dosage.cd',	
-            'horse_2.dosage.di',	'horse_2.draw',	'horse_3.age',	'horse_3.dosage.cd',	'horse_3.dosage.di',	'horse_3.draw',	'horse_4_form_0',	'horse_4_form_1',	'horse_4_form_2',	
-            'horse_4_form_3',	'horse_4.age',	'horse_4.dosage.cd',	'horse_4.dosage.di',	'horse_4.draw',	'horse_5_form_0',	'horse_5_form_1',	'horse_5_form_2',	'horse_5_form_3',	'horse_5.age',	
-            'horse_5.dosage.cd',	'horse_5.dosage.di',	'horse_5.draw',
+        'distance',	'going',	'is_flat',	'prize_money',	'race_rating',	'surface',	'horse_0_form_0',	'horse_0_form_1',	'horse_0_form_2',	'horse_0_form_3',	'horse_1_form_0',	'horse_1_form_1',	'horse_1_form_2',	'horse_1_form_3',	'horse_2_form_0',	'horse_2_form_1',	'horse_2_form_2',	'horse_2_form_3',	'horse_3_form_0',	'horse_3_form_1',	'horse_3_form_2',	'horse_3_form_3',	'draw.0',	'draw.3',	'draw.1',	'draw.2',	'horse_0.age',	'horse_0.dosage.cd',	'horse_0.dosage.di',	'horse_0.draw',	'horse_0.odds',	'horse_0.rating',	'horse_0.weight',	'horse_1.age',	'horse_1.dosage.cd',	'horse_1.dosage.di',	'horse_1.draw',	'horse_1.odds',	'horse_1.rating',	'horse_1.weight',	'horse_2.age',	'horse_2.dosage.cd',	'horse_2.dosage.di',	'horse_2.draw',	'horse_2.odds',	'horse_2.rating',	'horse_2.weight',	'horse_3.age',	'horse_3.dosage.cd',	'horse_3.dosage.di',	'horse_3.draw',	'horse_3.odds',	'horse_3.rating',	'horse_3.weight',	'horse_4_form_0',	'horse_4_form_1',	'horse_4_form_2',	'horse_4_form_3',	'draw.4',	'horse_4.age',	'horse_4.dosage.cd',	'horse_4.dosage.di',	'horse_4.draw',	'horse_4.odds',	'horse_4.rating',	'horse_4.weight',	'horse_5_form_0',	'horse_5_form_1',	'horse_5_form_2',	'horse_5_form_3',	'draw.5',	'horse_5.age',	'horse_5.dosage.cd',	'horse_5.dosage.di',	'horse_5.draw',	'horse_5.odds',	'horse_5.rating',	'horse_5.weight',	
         ]
         blank_df = pd.DataFrame(columns=complete_cols)
         df = Export().json_to_dataframe(dict)
@@ -289,10 +294,9 @@ class RaceCard():
             df.insert(i+actual_size, missing_cols[i], 0)
         csv = df.to_csv(encoding='utf-8', index=False)
         df = pd.read_csv(StringIO(csv)).fillna(0)
+        df = df[complete_cols]
 
         #setting headings as they appear in the dataset that the model was trained on
-        #TODO standardise headings by sorting alphabetically
-        df = df [complete_cols]
         csv = df.to_csv(encoding='utf-8', index=False)
         return csv
 

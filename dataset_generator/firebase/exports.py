@@ -19,7 +19,7 @@ class Export():
     def __init__(self, init=False):
         #config
         self.script_directory = os.path.dirname(os.path.abspath(__file__))
-        self.json_path = os.path.join(self.script_directory, 'oddsgenie-firebase.json')
+        self.json_path = os.path.abspath(os.path.join(self.script_directory, 'oddsgenie-firebase.json'))
         self.cred = credentials.Certificate('/dataset_generator/firebase/oddsgenie-firebase.json') #
         if init:
             self.app = firebase_admin.initialize_app(self.cred)
@@ -83,14 +83,14 @@ class Export():
     def json_to_csv(self, path_filename):
         with open(path_filename, encoding='utf-8') as inputfile:
             df = pd.read_json(inputfile)
-
+        df = df.reindex(sorted(df.columns), axis=1)
         df.to_csv(f'{path_filename[:path_filename.index(".")]}.csv', encoding='utf-8', index=False)
 
 def main():
     # export(['dataset'], './export.json')
     with open('./reduced_export.json', encoding='utf-8') as inputfile:
         df = pd.read_json(inputfile)
-    
+        df = df.reindex(sorted(df.columns), axis=1)
         pd.json_normalize(df["dataset"], meta=['header']).to_csv('./reduced_export.csv', encoding='utf-8', index=False)
 
     # command = sys.argv[1]

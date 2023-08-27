@@ -3,13 +3,12 @@ from torch import nn
 import torch.nn.functional as TF
 from torch.nn import Softmax
 
-
 class NeuralNet(nn.Module):
     def __init__(self):
         super(NeuralNet, self).__init__()
-        self.l1 = nn.Linear(54, (int(54*(2/3)//1) + 6))
+        self.l1 = nn.Linear(78, (int(78*(2/3)//1) + 6))
         self.relu = nn.ReLU()
-        self.l2 = nn.Linear((int(54*(2/3)//1) + 6), 6)
+        self.l2 = nn.Linear((int(78*(2/3)//1) + 6), 6)
         self.softmax = Softmax(dim=1)
     def forward(self, x):
         output = self.l1(x)

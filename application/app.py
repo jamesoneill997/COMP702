@@ -11,7 +11,7 @@ from dataset_generator.racingapi import data
 class App():
     def __init__(self):
         script_directory = os.path.dirname(os.path.abspath(__file__))
-        self.model_path = os.path.abspath(os.path.join(script_directory, '../model/bin/reduced_dataset_model_v1')) #todo fetch from remote
+        self.model_path = os.path.abspath(os.path.join(script_directory, '../model/bin/reduced_dataset_model_v2')) #todo fetch from remote
         self.today = datetime.today().strftime('%Y-%m-%d')
         self.rc_manager = RaceCard(self.today)
         self.model = self.load_model()
