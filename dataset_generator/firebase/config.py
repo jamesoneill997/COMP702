@@ -19,7 +19,7 @@ from multiprocessing import Pool
 
 script_directory = os.path.dirname(os.path.abspath(__file__))
 json_path = os.path.join(script_directory, 'oddsgenie-firebase.json')
-cred = credentials.Certificate(json_path)
+cred = credentials.Certificate('/dataset_generator/firebase/oddsgenie-firebase.json')
 app = firebase_admin.initialize_app(cred)
 db = firestore.client()
 
@@ -80,10 +80,10 @@ class DB():
             db.collection("results").document(prediction).set({"predicted_winner": winner["horse"]}, merge=True)
         return predictions_data
     
-    def get_results_by_date(self, date = (datetime.now()-timedelta(days=1)).strftime("%Y-%m-%d")):
+    def get_results_by_date(self, date = (datetime.now()-timedelta(days=2)).strftime("%Y-%m-%d")):
         results_data = []
         doc_ref = db.collection("results")
-        query_ref = doc_ref.where(filter=FieldFilter('date', "==", date)).order_by("off")
+        query_ref = doc_ref.where(filter=FieldFilter('date', ">=", date)).order_by("off")
         results = query_ref.get()
         results_dicts = {el.id: el.to_dict() for el in results}
         for result in results_dicts:

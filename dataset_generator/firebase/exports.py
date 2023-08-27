@@ -20,7 +20,7 @@ class Export():
         #config
         self.script_directory = os.path.dirname(os.path.abspath(__file__))
         self.json_path = os.path.join(self.script_directory, 'oddsgenie-firebase.json')
-        self.cred = credentials.Certificate(self.json_path) #'/dataset_generator/firebase/oddsgenie-firebase.json'
+        self.cred = credentials.Certificate('/dataset_generator/firebase/oddsgenie-firebase.json') #
         if init:
             self.app = firebase_admin.initialize_app(self.cred)
             self.db = firestore.client()
