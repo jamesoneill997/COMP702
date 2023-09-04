@@ -34,7 +34,6 @@ class App():
         predictions = {}
         racecards = self.racecards[1]
         csv_racecard_entries = [self.rc_manager.dict_to_ordered_csv(racecards[i]) for i in range(len(racecards))]
-
         print(f'Found {len(csv_racecard_entries)} racecards to process.')
         for csv_racecard in enumerate(csv_racecard_entries):
             data = StringIO(csv_racecard[1])

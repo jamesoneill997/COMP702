@@ -235,10 +235,10 @@ class RaceCard():
                     "age": int(runner["age"]),
                     "dosage.di": float(dosage[0]["di"]) if dosage[0]["di"] else 0,
                     "dosage.cd": float(dosage[0]["cd"]) if dosage[0]["cd"] else 0,
-                    "draw": int(runner["draw"]) if "draw" in runner and runner["draw"] not in ['', None] else -1,
+                    "draw": int(runner["draw"]) if "draw" in runner and runner["draw"] not in ['', '-', None] else -1,
                     "odds": float(odds),
-                    "rating": int(runner["rpr"]) if "rpr" in runner and runner["rpr"] not in ['', None] else -1,
-                    "weight": int(runner["lbs"]) if "lbs" in runner and runner["lbs"] not in ['', None] else -1,
+                    "rating": int(runner["rpr"]) if "rpr" in runner and runner["rpr"] not in ['', '-', None] else -1,
+                    "weight": int(runner["lbs"]) if "lbs" in runner and runner["lbs"] not in ['', '-', None] else -1,
                 }
                 form = self.parse_form(runner["form"]) #list up to length 4, the form limit
                 for k in range(len(form)):

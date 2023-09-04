@@ -19,7 +19,7 @@ from multiprocessing import Pool
 
 script_directory = os.path.dirname(os.path.abspath(__file__))
 json_path = os.path.join(script_directory, 'oddsgenie-firebase.json')
-cred = credentials.Certificate('/dataset_generator/firebase/oddsgenie-firebase.json')
+cred = credentials.Certificate(json_path)
 app = firebase_admin.initialize_app(cred)
 db = firestore.client()
 
@@ -268,7 +268,7 @@ class DB():
         data = []
         for entry in dataset:
             entry_dict = entry.to_dict()
-            if "horse_6" in entry_dict: #only get races with 6 horses
+            if "horse_7" in entry_dict: #only get races with 7 horses
                 continue
             tmp = {
                 "distance": entry_dict["distance"],
@@ -349,11 +349,11 @@ class DB():
                     d[f'horse_{i}']["dosage"]["di"] = float(d[f'horse_{i}']["dosage"]["di"])
             database.populate_dataset_entry(d, entry.id)
 
-# def main():
-#     db = DB()
-#     reduced_dataset = db.get_reduced_dataset()
-#     dataset_json = json.dumps(reduced_dataset)
-#     with open("reduced_export.json", "w") as f:
-#         f.write(dataset_json)
-# if __name__ == "__main__":
-#     main()
+def main():
+    db = DB()
+    reduced_dataset = db.get_reduced_dataset()
+    dataset_json = json.dumps(reduced_dataset)
+    with open("reduced_export.json", "w") as f:
+        f.write(dataset_json)
+if __name__ == "__main__":
+    main()

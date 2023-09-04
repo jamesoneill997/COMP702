@@ -8,6 +8,7 @@ import os
 import locale
 import regex as re
 import urllib.parse
+import time
 
 from requests.auth import HTTPBasicAuth
 from dotenv import load_dotenv
@@ -99,6 +100,7 @@ class Results():
         "POR": 33,
         "MEX": 34,
         "MOR": 35,
+        "SWI": 36,
         '':-1,
         
     }
@@ -178,22 +180,32 @@ class Results():
             d = datetime.today() - timedelta(days=num_days)
             params["start_date"] = d.strftime('%Y-%m-%d')
             params["end_date"] = datetime.today().strftime('%Y-%m-%d')
-        response = requests.request(
-            "GET", 
-            self.endpoint, 
-            auth=HTTPBasicAuth(
-                os.getenv('RACING_API_USERNAME'),
-                os.getenv('RACING_API_PASSWORD')), 
-            params=params,
-        )
+        while True:
+            response = requests.request(
+                "GET", 
+                self.endpoint, 
+                auth=HTTPBasicAuth(
+                    os.getenv('RACING_API_USERNAME'),
+                    os.getenv('RACING_API_PASSWORD')), 
+                params=params,
+            )
+            results_list = response.json()
+            if "error" in results_list and "Rate limit" in results_list["error"]:
+                print("Rate limit reached, waiting 3 seconds before retrying...")
+                time.sleep(3)
+                continue
+            
+            results_list = response.json()["results"]
+            break        
 
-        results_list = response.json()["results"]
         return results_list
 
     def process_results(self, results_list):
         print(f'Processing {len(results_list)} entries...')
         for result in results_list:
             try:
+                if len(result["runners"]) > 7:
+                    continue
                 #temporarily removing tests
                 # if not self.validate_label(result):
                 #     print("No valid label found for this race - skipping")
