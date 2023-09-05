@@ -11,7 +11,7 @@ from dataset_generator.racingapi import data
 class App():
     def __init__(self):
         script_directory = os.path.dirname(os.path.abspath(__file__))
-        self.model_path = os.path.abspath(os.path.join(script_directory, '../model/bin/reduced_dataset_model_v2')) #todo fetch from remote
+        self.model_path = os.path.abspath(os.path.join(script_directory, '../model/bin/reduced_dataset_model_v3')) #todo fetch from remote
         self.today = datetime.today().strftime('%Y-%m-%d')
         self.rc_manager = RaceCard(self.today)
         self.model = self.load_model()
@@ -48,6 +48,26 @@ class App():
             self.db.create_prediction_entry(prediction, predictions[prediction])
 
         return predictions
+    
+    def set_historic_predictions(self):
+        predictions = {}
+        racecards = self.rc_manager.get_historic_predictions()
+        csv_racecard_entries = [self.rc_manager.dict_to_ordered_csv(racecards[i]) for i in range(len(racecards))]
+
+        for csv_racecard in enumerate(csv_racecard_entries):
+            data = StringIO(csv_racecard[1])
+            df = pd.read_csv(data)
+            tensor = torch.tensor(df.values, dtype=torch.float32)
+            prediction_values = self.model(tensor).tolist()[0]
+            print("Prediction values: ", prediction_values)
+            predictions[self.race_ids[csv_racecard[0]]] = {f'horse_{i}':prediction_values[i] for i in range(len(prediction_values))}            
+
+        for prediction in predictions:
+            predictions[prediction]["winner_index"] = int(max(predictions[prediction], key=predictions[prediction].get)[-1])
+            self.db.create_prediction_entry(prediction, predictions[prediction])
+
+        return predictions
+        
     
     def set_results(self):
         results = data.Results()

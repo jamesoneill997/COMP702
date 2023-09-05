@@ -98,6 +98,7 @@ class RaceCard():
         "POR": 33,
         "MEX": 34,
         "MOR": 35,
+        "SWI": 36,
         '':-1,
         
     }
@@ -282,9 +283,7 @@ class RaceCard():
     #super messy, but it works
     #TODO: refactor once dataset has improved
     def dict_to_ordered_csv(self, dict):
-        complete_cols = [
-        'distance',	'going',	'is_flat',	'prize_money',	'race_rating',	'surface',	'horse_0_form_0',	'horse_0_form_1',	'horse_0_form_2',	'horse_0_form_3',	'horse_1_form_0',	'horse_1_form_1',	'horse_1_form_2',	'horse_1_form_3',	'horse_2_form_0',	'horse_2_form_1',	'horse_2_form_2',	'horse_2_form_3',	'horse_3_form_0',	'horse_3_form_1',	'horse_3_form_2',	'horse_3_form_3',	'draw.0',	'draw.3',	'draw.1',	'draw.2',	'horse_0.age',	'horse_0.dosage.cd',	'horse_0.dosage.di',	'horse_0.draw',	'horse_0.odds',	'horse_0.rating',	'horse_0.weight',	'horse_1.age',	'horse_1.dosage.cd',	'horse_1.dosage.di',	'horse_1.draw',	'horse_1.odds',	'horse_1.rating',	'horse_1.weight',	'horse_2.age',	'horse_2.dosage.cd',	'horse_2.dosage.di',	'horse_2.draw',	'horse_2.odds',	'horse_2.rating',	'horse_2.weight',	'horse_3.age',	'horse_3.dosage.cd',	'horse_3.dosage.di',	'horse_3.draw',	'horse_3.odds',	'horse_3.rating',	'horse_3.weight',	'horse_4_form_0',	'horse_4_form_1',	'horse_4_form_2',	'horse_4_form_3',	'draw.4',	'horse_4.age',	'horse_4.dosage.cd',	'horse_4.dosage.di',	'horse_4.draw',	'horse_4.odds',	'horse_4.rating',	'horse_4.weight',	'horse_5_form_0',	'horse_5_form_1',	'horse_5_form_2',	'horse_5_form_3',	'draw.5',	'horse_5.age',	'horse_5.dosage.cd',	'horse_5.dosage.di',	'horse_5.draw',	'horse_5.odds',	'horse_5.rating',	'horse_5.weight',	
-        ]
+        complete_cols = ['distance', 'going', 'is_flat', 'prize_money', 'race_rating', 'surface', 'horse_0_form_0', 'horse_0_form_1', 'horse_0_form_2', 'horse_0_form_3', 'horse_1_form_0', 'horse_1_form_1', 'horse_1_form_2', 'horse_1_form_3', 'horse_2_form_0', 'horse_2_form_1', 'horse_2_form_2', 'horse_2_form_3', 'horse_3_form_0', 'horse_3_form_1', 'horse_3_form_2', 'horse_3_form_3', 'horse_4_form_0', 'horse_4_form_1', 'horse_4_form_2', 'horse_4_form_3', 'horse_5_form_0', 'horse_5_form_1', 'horse_5_form_2', 'horse_5_form_3', 'horse_6_form_0', 'horse_6_form_1', 'horse_6_form_2', 'horse_6_form_3', 'draw.0', 'draw.1', 'draw.5', 'draw.2', 'draw.6', 'draw.3', 'draw.4', 'horse_0.age', 'horse_0.dosage.cd', 'horse_0.dosage.di', 'horse_0.draw', 'horse_0.odds', 'horse_0.weight', 'horse_0.sex', 'horse_1.age', 'horse_1.dosage.cd', 'horse_1.dosage.di', 'horse_1.draw', 'horse_1.odds', 'horse_1.weight', 'horse_1.sex', 'horse_2.age', 'horse_2.dosage.cd', 'horse_2.dosage.di', 'horse_2.draw', 'horse_2.odds', 'horse_2.weight', 'horse_2.sex', 'horse_3.age', 'horse_3.dosage.cd', 'horse_3.dosage.di', 'horse_3.draw', 'horse_3.odds', 'horse_3.weight', 'horse_3.sex', 'horse_4.age', 'horse_4.dosage.cd', 'horse_4.dosage.di', 'horse_4.draw', 'horse_4.odds', 'horse_4.weight', 'horse_4.sex', 'horse_5.age', 'horse_5.dosage.cd', 'horse_5.dosage.di', 'horse_5.draw', 'horse_5.odds', 'horse_5.weight', 'horse_5.sex', 'horse_6.age', 'horse_6.dosage.cd', 'horse_6.dosage.di', 'horse_6.draw', 'horse_6.odds', 'horse_6.weight', 'horse_6.sex']
         blank_df = pd.DataFrame(columns=complete_cols)
         df = Export().json_to_dataframe(dict)
         actual_cols = df.columns.to_list()
@@ -299,6 +298,14 @@ class RaceCard():
         #setting headings as they appear in the dataset that the model was trained on
         csv = df.to_csv(encoding='utf-8', index=False)
         return csv
+    
+    def get_historic_predictions(self, days=15):
+        predictions = []
+        for i in range(days):
+            print(f'Getting predictions for {i} days ago..')
+            date = (datetime.today() - timedelta(days=i)).strftime('%Y-%m-%d')
+            predictions+=db.get_predictions_by_date(date)
+        return predictions
 
 # def main():
 #     today = datetime.today().strftime('%Y-%m-%d')

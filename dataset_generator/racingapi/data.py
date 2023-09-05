@@ -211,6 +211,7 @@ class Results():
                 #     print("No valid label found for this race - skipping")
                 #     continue
                 if db.check_dataset_entry(result["race_id"]): #skip races we've already processed
+                    
                     print(f"Skipping race {result['race_id']} - entry already exists")
                     continue
                 print(f"Parsing result {results_list.index(result) + 1} of {len(results_list)} results")
@@ -229,7 +230,6 @@ class Results():
                 data['local_time'] = int(self.convert_to_military_time(result["off"])) if "off" in result else 0
                 data['race_rating'] = self.GRADE_TOKENS[result["pattern"].lower()] if self.GRADE_TOKENS[result["pattern"].lower()] else -1
                 data['winner'] = int(result["runners"][0]["draw"]) if "draw" in result["runners"][0] and result["runners"][0]["draw"] != '' else -1#this is the label, super important!
-
                 #race data that needs to be formatted or calculated
                 data['prize_money'] = self.format_prize_money(result["runners"][0]["prize"])
                 data['race_index'] = self.get_race_index(result['date'], result['course_id'], result['off'])

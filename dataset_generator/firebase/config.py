@@ -3,6 +3,7 @@ import requests
 import random
 import pprint
 import json
+import random
 from requests.auth import HTTPBasicAuth
 from dotenv import load_dotenv
 from datetime import (datetime, timedelta)
@@ -286,9 +287,10 @@ class DB():
                     "age": entry_dict[f'horse_{i}']["age"],
                     "dosage": entry_dict[f'horse_{i}']["dosage"],
                     "draw": entry_dict[f'horse_{i}']["draw"],
+                    "odds": entry_dict[f'horse_{i}']["odds"],
+                    "weight": entry_dict[f'horse_{i}']["weight"],
+                    "sex": entry_dict[f'horse_{i}']["sex"]
                 }
-                if tmp[f'horse_{i}']["draw"] == tmp["winner"]:
-                    tmp["winner"] = i
                 for j in range(4):
                     if f'form_{j}' in entry_dict[f'horse_{i}']:
                         tmp[f"horse_{i}_form_{j}"] = entry_dict[f'horse_{i}'][f'form_{j}']
@@ -327,13 +329,20 @@ class DB():
         for entry in dataset:
             print(f'Checking entry {dataset.index(entry)} of {len(dataset)}...')
             d = entry.to_dict()
-            keys = [key for key in d if "horse_" in key]
-            vals = [d[key] for key in d if "horse_" in key]
-            random.shuffle(keys)
-            d_shuffled = dict(zip(keys, vals))
+            d["winner"] = 0 #winner is always the first horse in results runners array on first run
+            random_number = random.randint(0, len(d["draw"])-1)
+            tmp = d["horse_0"]
+            d["horse_0"] = d[f"horse_{random_number}"]
+            d[f"horse_{random_number}"] = tmp
+            d["winner"] = random_number
+
+            # keys = [key for key in d if "horse_" in key]
+            # vals = [d[key] for key in d if "horse_" in key]
+            # random.shuffle(keys)
+            # d_shuffled = dict(zip(keys, vals))
             
-            for key in d_shuffled:
-                d[key] = d_shuffled[key]
+            # for key in d_shuffled:
+            #     d[key] = d_shuffled[key]
             database.populate_dataset_entry(d, entry.id)
             
     def convert_dosage_to_float(self):
