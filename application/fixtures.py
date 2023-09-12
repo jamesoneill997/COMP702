@@ -50,6 +50,7 @@ class RaceCard():
         "wet fast": 18,
         "muddy": 19,
         "sealed": 20,
+        "soft to heavy": 21,
         '':-1,
         
     }
