@@ -194,7 +194,7 @@ class RaceCard():
         return merged_results
     
     #extract relevant data to comply with reduced dataset
-    def format_racecards(self, result_limit=6, runner_limit=6):
+    def format_racecards(self, result_limit=6, runner_limit=7):
         raw_cards = self.get_racecards()
         race_ids = []
         cards = []
@@ -304,7 +304,7 @@ class RaceCard():
         for i in range(days):
             print(f'Getting predictions for {i} days ago..')
             date = (datetime.today() - timedelta(days=i)).strftime('%Y-%m-%d')
-            predictions+=db.get_predictions_by_date(date)
+            predictions.append(db.get_predictions_by_date(date))
         return predictions
 
 # def main():

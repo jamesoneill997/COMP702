@@ -51,8 +51,7 @@ class App():
     
     def set_historic_predictions(self):
         predictions = {}
-        racecards = self.rc_manager.get_historic_predictions()
-        csv_racecard_entries = [self.rc_manager.dict_to_ordered_csv(racecards[i]) for i in range(len(racecards))]
+        csv_racecard_entries = [self.rc_manager.dict_to_ordered_csv(self.racecards[i]) for i in range(len(self.racecards))]
 
         for csv_racecard in enumerate(csv_racecard_entries):
             data = StringIO(csv_racecard[1])
@@ -60,8 +59,10 @@ class App():
             tensor = torch.tensor(df.values, dtype=torch.float32)
             prediction_values = self.model(tensor).tolist()[0]
             print("Prediction values: ", prediction_values)
+            print(len(prediction_values))
+            print(csv_racecard[0])
             predictions[self.race_ids[csv_racecard[0]]] = {f'horse_{i}':prediction_values[i] for i in range(len(prediction_values))}            
-
+            
         for prediction in predictions:
             predictions[prediction]["winner_index"] = int(max(predictions[prediction], key=predictions[prediction].get)[-1])
             self.db.create_prediction_entry(prediction, predictions[prediction])
@@ -76,7 +77,7 @@ class App():
         return True
 def main():
     app = App()
-    app.set_predictions()
+    app.set_historic_predictions()
 
 if __name__ == "__main__":
     main()

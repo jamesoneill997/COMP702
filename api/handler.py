@@ -1,11 +1,15 @@
 from flask import Flask, request, jsonify, make_response
 from flask_restful import Resource, Api
+from flask_cors import CORS, cross_origin
 from data import Data
 
 app = Flask("oddsgenie-api")
+cors = CORS(app)
 api = Api(app)
+app.config['CORS_HEADERS'] = 'Content-Type'
 
 class ResultsHandler(Resource):
+    @cross_origin()
     def get(self):
         try:
             http_code = 200
@@ -19,8 +23,9 @@ class ResultsHandler(Resource):
                 "error": "Something went wrong", 
             }
         return make_response(jsonify(response), http_code)
-        
+
 class RaceCardsHandler(Resource):
+    @cross_origin()
     def get(self):
         try:
             http_code = 200
