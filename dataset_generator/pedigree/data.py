@@ -97,13 +97,12 @@ class HorsePedigree():
 
     def extract_match(self, html_string):
         print("Fetching dosage index for previously unseen horse...")
-        # print(html_string)
         pattern = re.compile(r"DI = (-?\d+(\.\d+)?|Inf)\s+CD = (-?\d+(\.\d+)?|Inf)")
         match = pattern.search(html_string)
         if match:
-            di_value = match.group(1) if match.group(1) != 'Inf' else 1000
-            cd_value = match.group(4) if match.group(3) != 'Inf' else 1000
-            return di_value, cd_value
+            di = float(match.group(1)) if match.group(1) != 'Inf' else 1000
+            cd = float(match.group(3)) if match.group(3) != 'Inf' else 1000
+            return di, cd
         else:
             print("No dosage index found")
             return None, None

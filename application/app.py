@@ -15,9 +15,9 @@ class App():
         self.today = datetime.today().strftime('%Y-%m-%d')
         self.rc_manager = RaceCard(self.today)
         self.model = self.load_model()
-        self.racecards = self.rc_manager.format_racecards()
-        self.race_ids = self.racecards[0]
-        self.racecards_raw = self.racecards[1]
+        # self.racecards = self.rc_manager.format_racecards()
+        # self.race_ids = self.racecards[0]
+        # self.racecards_raw = self.racecards[1]
         self.db = DB()
         
     def load_model(self):
@@ -26,7 +26,7 @@ class App():
         model.eval()
         return model
         
-    def get_racecards(self, results_limit=None, horse_limit=6):
+    def get_racecards(self, results_limit=None, horse_limit=7):
         return self.rc_manager.format_racecards(results_limit, horse_limit)
     
     def set_predictions(self):
@@ -44,29 +44,26 @@ class App():
             predictions[self.race_ids[csv_racecard[0]]] = {f'horse_{i}':prediction_values[i] for i in range(len(prediction_values))}            
 
         for prediction in predictions:
-            predictions[prediction]["winner_index"] = int(max(predictions[prediction], key=predictions[prediction].get)[-1])
+            predictions[prediction]["winner_index"] = int(max(predictions[prediction], key=predictions[prediction].get)[-1])            
             self.db.create_prediction_entry(prediction, predictions[prediction])
 
         return predictions
     
     def set_historic_predictions(self):
         predictions = {}
-        csv_racecard_entries = [self.rc_manager.dict_to_ordered_csv(self.racecards[i]) for i in range(len(self.racecards))]
-
+        race_ids, full_racecards = self.rc_manager.format_racecards(full_history=True)
+        print(f"Found {len(full_racecards)} racecards to process.")
+        csv_racecard_entries = [self.rc_manager.dict_to_ordered_csv(full_racecards[i]) for i in range(len(full_racecards))]
         for csv_racecard in enumerate(csv_racecard_entries):
             data = StringIO(csv_racecard[1])
             df = pd.read_csv(data)
             tensor = torch.tensor(df.values, dtype=torch.float32)
             prediction_values = self.model(tensor).tolist()[0]
-            print("Prediction values: ", prediction_values)
-            print(len(prediction_values))
-            print(csv_racecard[0])
-            predictions[self.race_ids[csv_racecard[0]]] = {f'horse_{i}':prediction_values[i] for i in range(len(prediction_values))}            
+            predictions[race_ids[csv_racecard[0]]] = {f'horse_{i}':prediction_values[i] for i in range(len(prediction_values))}            
             
         for prediction in predictions:
             predictions[prediction]["winner_index"] = int(max(predictions[prediction], key=predictions[prediction].get)[-1])
             self.db.create_prediction_entry(prediction, predictions[prediction])
-
         return predictions
         
     

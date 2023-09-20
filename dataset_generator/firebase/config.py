@@ -19,8 +19,8 @@ from multiprocessing import Pool
 #config
 
 script_directory = os.path.dirname(os.path.abspath(__file__))
-json_path = os.path.join(script_directory, 'oddsgenie-firebase.json')
-cred = credentials.Certificate('/dataset_generator/firebase/oddsgenie-firebase.json') #'/dataset_generator/firebase/oddsgenie-firebase.json'
+json_path = os.path.join(script_directory, 'oddsgenie-firebase.json') if os.getenv("ENV") == "DEV" else '/dataset_generator/firebase/oddsgenie-firebase.json'
+cred = credentials.Certificate(json_path) #'/dataset_generator/firebase/oddsgenie-firebase.json'
 app = firebase_admin.initialize_app(cred)
 db = firestore.client()
 
@@ -53,6 +53,26 @@ class DB():
         except Exception as e:
             print(f"Error adding prediction entry: {e}")
             return False
+        
+    def update_prediction_entries(self):
+        doc_ref = db.collection("predictions")
+        predictions = doc_ref.get()
+        for prediction in predictions:
+            print(f'Updating prediction {prediction.id}...')
+            p = prediction.to_dict()
+            try:
+                p["predicted_winner"] = p['runners'][p["winner_index"]]["horse"]
+                
+                print(f'Updating prediction {prediction.id} with winner {p["predicted_winner"]}...')
+                doc_ref.document(prediction.id).set(p, merge=True)
+            except IndexError:
+                continue
+        return True
+        
+    def get_predictions(self, limit=None):
+        predictions_ref = db.collection("predictions")
+        predictions = predictions_ref.get() if not limit else predictions_ref.limit_to_last(limit).get()
+        return [prediction.to_dict() for prediction in predictions]
 
     def get_predictions_by_date(self, date=datetime.now().strftime("%Y-%m-%d")):
         predictions_data = []
@@ -88,7 +108,7 @@ class DB():
         results = query_ref.get()
         results_dicts = {el.id: el.to_dict() for el in results}
         for result in results_dicts:
-            if len(results_dicts[result]["runners"]) > 6:
+            if len(results_dicts[result]["runners"]) > 7:
                 continue
             try:
                 prediction_entry = self.get_prediction_entry(result)
@@ -226,7 +246,7 @@ class DB():
     
     def retry_horse_dosage(self, horses_doc_refs):
         for horse in horses_doc_refs:
-            horse = horse.to_dict()
+            horse = horse.to_dict() if type(horse) != dict else horse
             horse["sire"] = horse["sire"][:horse["sire"].index("(")].strip() if "(" in horse["sire"] else horse["sire"]
             horse["name"] = horse["name"][:horse["name"].index("(")].strip() if "(" in horse["name"] else horse["name"]
             
@@ -360,9 +380,6 @@ class DB():
 
 def main():
     db = DB()
-    reduced_dataset = db.get_reduced_dataset()
-    dataset_json = json.dumps(reduced_dataset)
-    with open("reduced_export.json", "w") as f:
-        f.write(dataset_json)
+    db.update_prediction_entries()
 if __name__ == "__main__":
     main()

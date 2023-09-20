@@ -19,8 +19,8 @@ class Export():
     def __init__(self, init=False):
         #config
         self.script_directory = os.path.dirname(os.path.abspath(__file__))
-        self.json_path = os.path.abspath(os.path.join(self.script_directory, 'oddsgenie-firebase.json'))
-        self.cred = credentials.Certificate('/dataset_generator/firebase/oddsgenie-firebase.json') #'/dataset_generator/firebase/oddsgenie-firebase.json'
+        self.json_path = os.path.abspath(os.path.join(self.script_directory, 'oddsgenie-firebase.json')) if os.getenv("ENV") == "DEV" else '/dataset_generator/firebase/oddsgenie-firebase.json'
+        self.cred = credentials.Certificate(self.json_path) #'/dataset_generator/firebase/oddsgenie-firebase.json'
         if init:
             self.app = firebase_admin.initialize_app(self.cred)
             self.db = firestore.client()
@@ -80,21 +80,24 @@ class Export():
         print("Done.")
 
     #convert json file to csv format, more suitable for training data
-    def json_to_csv(self, path_filename):
-        with open(path_filename, encoding='utf-8') as inputfile:
-            df = pd.read_json(inputfile)
-        df = df.reindex(sorted(df.columns), axis=1)
-        df.to_csv(f'{path_filename[:path_filename.index(".")]}.csv', encoding='utf-8', index=False)
+    def json_to_csv(self, path_filename='./dataset_generator/firebase/backups/predictions_full.json', output_file='./predictions.csv'):
+        # Load the JSON data into a DataFrame
+        df = pd.read_json(path_filename)
+
+        df = pd.json_normalize(df)
+
+        df.to_csv(output_file, index=False)
+        return 0
 
 def main():
-    # export = Export()
-    # export.json_to_csv('./reduced_export.json')
+    export = Export()
+    export.json_to_csv()
     
     #export(['dataset'], './export.json')
-    with open('./reduced_export.json', encoding='utf-8') as inputfile:
-        df = pd.read_json(inputfile)
-        df = df.reindex(sorted(df.columns), axis=1)
-        pd.json_normalize(df["dataset"], meta=['header']).to_csv('./reduced_export.csv', encoding='utf-8', index=False)
+    # with open('./dataset_generator/firebase/backups/predictions_full.json', encoding='utf-8') as inputfile:
+    #     df = pd.read_json(inputfile)
+    #     df = df.reindex(sorted(df.columns), axis=1)
+    #     pd.json_normalize(df["predictions"], meta=['header']).to_csv('./predictions.csv', encoding='utf-8', index=False)
 
     # command = sys.argv[1]
     # if command == 'export':
